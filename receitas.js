@@ -4,8 +4,25 @@
 // Nos textos do modo de preparo, {chave} é trocado pela quantidade calculada:
 //   {farinha} {agua} {sal} {fermento} {azeite} {azeiteMl} {agua90} {aguaResto}
 //   {pfFarinha} {pfAgua} {finFarinha} {finAgua} {finAgua23} {finAguaResto} {bolas} {pesoBola}
+// e pelo fermento escolhido no app: {fermentoNome} ("fermento fresco"/"fermento seco instantâneo")
+// e {fermentoDissolver} (frase pronta de como dissolver {fermento} em {agua90}).
+//
+// O fermento de cada receita está em `tipoFermento`; o app converte se o usuário
+// escolher o outro tipo (seco instantâneo = fresco ÷ 3, como indica a AVPN).
+//
+// wMin / wIdeal: força da farinha (W) mínima e ideal para o tempo de fermentação da receita.
 
-const AZEITE = 0.03; // 3% fixo em todas as receitas (30 g por kg de farinha), por preferência
+const AZEITE = 0.03; // 3% nas receitas adaptadas (30 g por kg de farinha), por preferência
+const FRESCO_POR_SECO = 3;
+
+// Tipos de farinha: o W sugerido pode ser trocado pelo da embalagem/ficha técnica
+const FARINHAS = [
+  { id: 'nacional', nome: 'Nacional comum', w: 200, dica: 'Farinha de trigo tipo 1 de mercado; W geralmente entre 170 e 230.' },
+  { id: 'nacional-pizza', nome: 'Nacional para pizza', w: 260, dica: 'Farinhas "especial para pizza" ou profissionais; W geralmente entre 240 e 300 — confira a ficha técnica.' },
+  { id: 'italiana', nome: 'Italiana 00 ou 0', w: 280, dica: 'Veja o W na embalagem. Ex.: Caputo Pizzeria ~W 260–270; Caputo Cuoco ~W 300–320.' },
+  { id: 'manitoba', nome: 'Manitoba', w: 380, dica: 'Muito forte (W 350+). Usada pura em biga/longas fermentações ou misturada para reforçar outra farinha.' },
+];
+const W_MANITOBA = 380;
 
 // Fotos com licença livre do Wikimedia Commons (o crédito aparece embaixo de cada foto)
 const commons = (arquivo) => ({
@@ -56,16 +73,13 @@ const SOVAR = {
 const TESTE_DEDO = 'Teste do dedo: aperte de leve com a ponta do dedo — se a marca volta devagar e não some totalmente, está pronta; se volta rápido, espere mais; se não volta, passou do ponto (asse logo).';
 
 // Mistura da massa direta (fermento dissolvido em 90% da água, sal com os 10% restantes)
-const misturaDireta = (tipo) => [
+const misturaDireta = () => [
   {
     icone: 'tigela',
     titulo: 'Dissolva o fermento e misture',
     tempo: '5 min + 10 min',
     foto: 'farinha',
-    texto: (tipo === 'fresco'
-      ? 'Esfarele {fermento} de fermento fresco em {agua90} de água e mexa até dissolver.'
-      : 'Misture {fermento} de fermento seco em {agua90} de água.')
-      + ' Adicione a farinha ({farinha}) aos poucos, mexendo com a mão ou uma colher, até não sobrar farinha seca. Tampe e descanse 10 min — isso facilita a sova.',
+    texto: '{fermentoDissolver} Adicione a farinha ({farinha}) aos poucos, mexendo com a mão ou uma colher, até não sobrar farinha seca. Tampe e descanse 10 min — isso facilita a sova.',
   },
   {
     icone: 'tigela',
@@ -78,7 +92,86 @@ const misturaDireta = (tipo) => [
 
 const RECEITAS = [
   {
+    // Disciplinare AVPN, por litro de água: 1,6–1,8 kg de farinha, 40–60 g de sal, 0,1–3 g de fermento fresco.
+    // Valores do meio da faixa: 1,7 kg de farinha, 50 g de sal e 1,7 g de fermento por litro.
+    id: 'avpn',
+    curto: '8–24 h ambiente',
+    wMin: 250,
+    wIdeal: [260, 300],
+    nome: 'AVPN Tradicional',
+    resumo: 'A receita original da Verace Pizza Napoletana: só farinha, água, sal e fermento. Sem azeite e sem açúcar na massa.',
+    prazo: '8–24 h de fermentação total em temperatura ambiente',
+    metodo: 'Direta · AVPN',
+    foto: 'margherita4',
+    hidratacao: 1000 / 1700,
+    sal: 50 / 1700,
+    fermento: 1.7 / 1700,
+    tipoFermento: 'fresco',
+    azeite: 0,
+    acucar: 0,
+    notaHidratacao: 'Faixa AVPN: 55,6–62,5% (1 litro de água para 1,6–1,8 kg de farinha).',
+    linhaTempo: ['Mistura e sova 25 min', 'Bloco ~2 h', 'Bolas 4–6 h ou mais', 'Total 8–24 h', 'Assar'],
+    fases: [
+      {
+        titulo: 'Massa',
+        quando: '8–24 h antes de assar',
+        ingredientes: 'tudo',
+        passos: [
+          {
+            icone: 'balanca',
+            titulo: 'Pese e prepare',
+            texto: 'Proporção AVPN por litro de água: 1,6–1,8 kg de farinha 00 ou 0, 40–60 g de sal marinho e 0,1–3 g de fermento fresco. Aqui usamos o meio da faixa: 1,7 kg de farinha, 50 g de sal e 1,7 g de fermento por litro. Use água a ~20 °C. Não leva azeite nem açúcar.',
+          },
+          {
+            icone: 'tigela',
+            titulo: 'Água e sal',
+            texto: 'Coloque toda a água ({agua}) na tigela (ou na amassadeira) e dissolva nela o sal ({sal}).',
+          },
+          {
+            icone: 'tigela',
+            titulo: 'Farinha e fermento',
+            tempo: '10 min',
+            foto: 'farinha',
+            texto: 'Adicione cerca de 10% da farinha e mexa; em seguida junte {fermento} de {fermentoNome} e comece a misturar. Vá acrescentando o restante da farinha (total de {farinha}) aos poucos, até a massa ficar homogênea e soltar da tigela — o "ponto de massa". Sal e fermento não devem ficar em contato direto por mais de 5 minutos.',
+          },
+          { ...SOVAR, texto: SOVAR.texto.replace('Sove 10–12 min à mão (ou 6–8 min na batedeira com gancho, velocidade baixa)', 'Sove 10–15 min à mão (ou ~20 min na amassadeira/batedeira em velocidade baixa)') },
+          {
+            icone: 'relogio',
+            titulo: 'Descanso em bloco (puntata)',
+            tempo: '~2 h',
+            texto: 'Deixe a massa na bancada ou tigela coberta com um pano úmido, para não formar casca, por cerca de 2 h em temperatura ambiente.',
+          },
+          { ...BOLEAR, titulo: 'Divida e boleie (staglio)', texto: BOLEAR.texto + ' A AVPN usa bolas de 200 a 280 g.' },
+          {
+            icone: 'dedo',
+            titulo: 'Fermentação das bolas (apretto)',
+            tempo: '4–6 h ou mais',
+            texto: 'Deixe as bolas tampadas em temperatura ambiente. O tempo varia com a temperatura, a umidade e a farinha: normalmente 4–6 h, e a fermentação total (bloco + bolas) deve ficar entre 8 e 24 h. ' + TESTE_DEDO,
+          },
+          {
+            ...ABRIR,
+            texto: 'Somente com as mãos, sem rolo: com as pontas dos dedos, pressione do centro para fora, virando a massa várias vezes. Pela AVPN, o centro fica com no máximo 0,25 cm de espessura e o disco com 22–35 cm, com a borda (cornicione) alta e macia.',
+          },
+          {
+            ...ASSAR,
+            texto: 'AVPN: forno a lenha com piso a ~430–480 °C, assando 60–90 s e girando a pizza. O azeite extravirgem entra só por cima, em espiral, depois do recheio. Forno doméstico: pré-aqueça no máximo (250–300 °C) por 45–60 min com pedra ou chapa de aço na grelha mais alta, asse 5–8 min e use o grill no último minuto.',
+          },
+        ],
+      },
+    ],
+    dicas: [
+      'A AVPN admite de 0,1 a 3 g de fermento fresco por litro de água (mais fermento para menos horas). O app usa 1,7 g por litro, que funciona bem para ~12 h a 20–22 °C; em casa mais fria, a fermentação se aproxima das 24 h.',
+      'O azeite não faz parte da massa AVPN: ele só vai por cima da pizza montada.',
+    ],
+    fontes: [
+      { nome: 'AVPN — Disciplinare della Verace Pizza Napoletana', url: 'https://www.pizzanapoletana.org/it/ricetta_pizza_napoletana' },
+    ],
+  },
+  {
     id: 'biga',
+    curto: '1 dia + 4–6 h',
+    wMin: 300,
+    wIdeal: [300, 360],
     nome: 'Biga',
     resumo: 'Pré-fermento firme e seco que dá massa leve, alveolada e mais digerível, com aroma levemente frutado.',
     prazo: 'Biga 16–24 h a 18 °C + massa final 4–6 h',
@@ -90,7 +183,7 @@ const RECEITAS = [
     tipoFermento: 'fresco',
     azeite: AZEITE,
     acucar: 0,
-    prefermento: { nome: 'Biga', rotulo: 'Toda a biga', farinha: 0.5, agua: 0.45, fermento: 0.01 },
+    prefermento: { nome: 'Biga', artigo: 'a', rotulo: 'Toda a biga', farinha: 0.5, agua: 0.45, fermento: 0.01 },
     linhaTempo: ['Biga 16–24 h', 'Massa final 20 min', 'Bloco 30–60 min', 'Bolas 3–5 h', 'Assar'],
     fases: [
       {
@@ -107,7 +200,7 @@ const RECEITAS = [
             icone: 'tigela',
             titulo: 'Misture sem sovar',
             tempo: '2–3 min',
-            texto: 'Dissolva {fermento} de fermento fresco em {pfAgua} de água. Coloque {pfFarinha} de farinha numa tigela grande, despeje a água e misture com as pontas dos dedos (ou uma colher) por 2–3 min, só até a farinha absorver toda a água. NÃO sove: a biga fica em flocos e grumos úmidos e irregulares — é assim mesmo.',
+            texto: 'Dissolva {fermento} de {fermentoNome} em {pfAgua} de água. Coloque {pfFarinha} de farinha numa tigela grande, despeje a água e misture com as pontas dos dedos (ou uma colher) por 2–3 min, só até a farinha absorver toda a água. NÃO sove: a biga fica em flocos e grumos úmidos e irregulares — é assim mesmo.',
           },
           {
             icone: 'pote',
@@ -160,7 +253,6 @@ const RECEITAS = [
     dicas: [
       'A biga clássica tem 44–45% de água sobre a farinha da biga e 1% de fermento fresco; a água que falta para a hidratação escolhida entra na massa final.',
       'Use farinha forte (tipo 00 ou 0 para pizza, W 300 ou mais): a biga é longa e exige glúten resistente.',
-      'Fermento seco no lugar do fresco: use 1/3 do peso.',
     ],
     fontes: [
       { nome: 'Dissapore — Biga: o que é e como usar', url: 'https://www.dissapore.com/cucina/biga-cose-preparazione-e-usi/' },
@@ -169,6 +261,9 @@ const RECEITAS = [
   },
   {
     id: 'poolish',
+    curto: '12–16 h + 6–8 h',
+    wMin: 280,
+    wIdeal: [300, 350],
     nome: 'Poolish',
     resumo: 'Pré-fermento líquido (mesmo peso de farinha e água) que deixa a massa extensível, aromática e com borda bem aerada.',
     prazo: 'Poolish 12–16 h a 18–20 °C + massa final 6–8 h',
@@ -180,7 +275,7 @@ const RECEITAS = [
     tipoFermento: 'fresco',
     azeite: AZEITE,
     acucar: 0,
-    prefermento: { nome: 'Poolish', rotulo: 'Todo o poolish', farinha: 0.3, agua: 1.0, fermento: 0.002 },
+    prefermento: { nome: 'Poolish', artigo: 'o', rotulo: 'Todo o poolish', farinha: 0.3, agua: 1.0, fermento: 0.002 },
     linhaTempo: ['Poolish 12–16 h', 'Massa final 25 min', 'Bloco 1–2 h', 'Bolas 4–6 h', 'Assar'],
     fases: [
       {
@@ -192,7 +287,7 @@ const RECEITAS = [
             icone: 'tigela',
             titulo: 'Misture o poolish',
             tempo: '2 min',
-            texto: 'Num pote com o dobro do volume, dissolva {fermento} de fermento fresco em {pfAgua} de água a 20–22 °C. Junte {pfFarinha} de farinha e mexa com colher ou fouet por 1–2 min, até virar um creme liso, sem grumos — consistência de massa de panqueca grossa.',
+            texto: 'Num pote com o dobro do volume, dissolva {fermento} de {fermentoNome} em {pfAgua} de água a 20–22 °C. Junte {pfFarinha} de farinha e mexa com colher ou fouet por 1–2 min, até virar um creme liso, sem grumos — consistência de massa de panqueca grossa.',
           },
           {
             icone: 'pote',
@@ -250,8 +345,7 @@ const RECEITAS = [
     ],
     dicas: [
       'O poolish leva 100% de água sobre a sua farinha. Aqui ele usa 30% da farinha total; o restante da água entra na massa final.',
-      'Pouco fermento (0,2% sobre a farinha do poolish) = fermentação lenta e mais aroma. Para poolish mais rápido: 0,75% fica pronto em ~8 h, 1,5% em ~4 h.',
-      'Fermento seco no lugar do fresco: use 1/3 do peso.',
+      'Pouco fermento (0,2% de fresco sobre a farinha do poolish) = fermentação lenta e mais aroma. Para poolish mais rápido: 0,75% fica pronto em ~8 h, 1,5% em ~4 h.',
     ],
     fontes: [
       { nome: 'Scatti di Gusto — O poolish de Luca Pezzetta', url: 'https://www.scattidigusto.it/2020/03/15/lezioni-di-pizza-il-poolish-o-biga-liquida-di-luca-pezzetta/' },
@@ -261,6 +355,9 @@ const RECEITAS = [
   },
   {
     id: 'mesmo-dia',
+    curto: '6–8 h',
+    wMin: 200,
+    wIdeal: [230, 270],
     nome: 'Mesmo dia',
     resumo: 'Massa direta para fazer e assar no mesmo dia, com 6–8 h de fermentação em temperatura ambiente.',
     prazo: '6–8 h a ~20–23 °C',
@@ -284,7 +381,7 @@ const RECEITAS = [
             titulo: 'Pese e prepare',
             texto: 'Pese tudo antes de começar. Use água em temperatura ambiente (20–22 °C); em dia quente (acima de 26 °C), use água gelada para a massa não fermentar rápido demais. Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
           },
-          ...misturaDireta('fresco'),
+          ...misturaDireta(),
           SOVAR,
           {
             icone: 'relogio',
@@ -314,6 +411,9 @@ const RECEITAS = [
   },
   {
     id: '12h',
+    curto: '12 h ambiente',
+    wMin: 260,
+    wIdeal: [270, 300],
     nome: '12 h',
     resumo: 'Massa no estilo AVPN, fermentada em temperatura ambiente fresca. Faça de manhã cedo para a noite, ou à noite para o almoço.',
     prazo: '12 h a 18–20 °C',
@@ -337,7 +437,7 @@ const RECEITAS = [
             titulo: 'Pese e prepare',
             texto: 'Pese tudo antes de começar — com tão pouco fermento ({fermento}), use balança de precisão. Use água fresca (18–20 °C). Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
           },
-          ...misturaDireta('fresco'),
+          ...misturaDireta(),
           SOVAR,
           {
             icone: 'relogio',
@@ -367,6 +467,9 @@ const RECEITAS = [
   },
   {
     id: '24h',
+    curto: '24 h geladeira',
+    wMin: 260,
+    wIdeal: [280, 320],
     nome: '24 h',
     resumo: 'Fermentação lenta na geladeira: mais sabor, massa mais leve e flexibilidade de horário.',
     prazo: '18–24 h na geladeira (4–6 °C) + 2–4 h fora',
@@ -390,7 +493,7 @@ const RECEITAS = [
             titulo: 'Pese e prepare',
             texto: 'Pese tudo antes de começar. Use água gelada (5–8 °C, da geladeira) para a massa terminar a ~22 °C e entrar fria na geladeira. Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
           },
-          ...misturaDireta('seco'),
+          ...misturaDireta(),
           SOVAR,
           {
             icone: 'relogio',
@@ -418,7 +521,6 @@ const RECEITAS = [
     ],
     dicas: [
       'Geladeiras variam muito: com termômetro, confira se a prateleira fica em 4–6 °C.',
-      'Fermento fresco no lugar do seco: use 3 vezes o peso.',
     ],
     fontes: [
       { nome: 'AVPN — Disciplinare della Verace Pizza Napoletana', url: 'https://www.pizzanapoletana.org/it/ricetta_pizza_napoletana' },
@@ -426,6 +528,9 @@ const RECEITAS = [
   },
   {
     id: '48h',
+    curto: '48 h geladeira',
+    wMin: 300,
+    wIdeal: [300, 350],
     nome: '48 h',
     resumo: 'Fermentação longa na geladeira, em bloco e depois em bolas: sabor mais complexo e massa bem digerível.',
     prazo: '24 h em bloco + 18–20 h em bolas na geladeira + 3–5 h fora',
@@ -449,7 +554,7 @@ const RECEITAS = [
             titulo: 'Pese e prepare',
             texto: 'Pese tudo antes de começar — com tão pouco fermento ({fermento}), use balança de precisão. Use água gelada (5–8 °C). Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
           },
-          ...misturaDireta('seco'),
+          ...misturaDireta(),
           {
             icone: 'dobra',
             titulo: 'Sove e faça dobras',
@@ -490,7 +595,6 @@ const RECEITAS = [
     dicas: [
       'Prefira farinha forte, própria para longa fermentação (W 300 ou mais).',
       'Controle o frio: geladeira acima de 6 °C pode fazer a massa passar do ponto em 48 h.',
-      'Fermento fresco no lugar do seco: use 3 vezes o peso.',
     ],
     fontes: [
       { nome: 'AVPN — Disciplinare della Verace Pizza Napoletana', url: 'https://www.pizzanapoletana.org/it/ricetta_pizza_napoletana' },

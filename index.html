@@ -27,6 +27,7 @@
     </button>
   </header>
 
+  <div class="layout">
   <nav id="abas" class="abas" aria-label="Receitas"></nav>
 
   <main id="tela-receita" class="conteudo">
@@ -34,9 +35,39 @@
       <div id="capa"></div>
       <h2 id="nome"></h2>
       <p id="resumo" class="resumo"></p>
-      <p class="tags"><span id="metodo" class="tag"></span> <span id="tipo-fermento" class="tag"></span></p>
+      <p class="tags"><span id="metodo" class="tag"></span> <span id="azeite-tag" class="tag"></span></p>
       <p id="prazo" class="prazo"></p>
       <ol id="linha-tempo" class="linha-tempo" aria-label="Linha do tempo"></ol>
+    </section>
+
+    <section class="card" aria-labelledby="t-insumos">
+      <h3 id="t-insumos">Sua farinha e fermento</h3>
+      <div class="insumos">
+        <label class="campo">
+          <span>Tipo de farinha</span>
+          <select id="sel-farinha" class="select"></select>
+        </label>
+        <label class="campo campo-w">
+          <span>Força (W)</span>
+          <div class="stepper">
+            <button type="button" data-passo="farinhaW:-10" aria-label="Diminuir W em 10">−</button>
+            <input id="in-w" type="number" inputmode="numeric" min="100" max="450" step="10">
+            <button type="button" data-passo="farinhaW:10" aria-label="Aumentar W em 10">+</button>
+          </div>
+        </label>
+      </div>
+      <p id="farinha-dica" class="dica"></p>
+      <div id="compat" class="compat"></div>
+
+      <div class="campo campo-fermento">
+        <span>Fermento que você vai usar</span>
+        <div class="segmentos segmentos-2" role="group" aria-label="Tipo de fermento">
+          <button type="button" data-fermento="fresco">Fresco</button>
+          <button type="button" data-fermento="seco">Seco instantâneo</button>
+        </div>
+      </div>
+      <p id="dose-fermento" class="dose"></p>
+      <p class="dica">Seco instantâneo = fresco ÷ 3 (o de sachê, que vai direto na massa). O seco biológico comum, que precisa ser ativado em água morna, equivale a ~fresco ÷ 2.</p>
     </section>
 
     <section class="card" aria-labelledby="t-quantidade">
@@ -107,7 +138,8 @@
         <button id="hid-mais" type="button" class="bt-redondo" aria-label="Aumentar 0,5%">+</button>
       </div>
       <input id="slider-hid" type="range" min="50" max="85" step="0.5" aria-label="Hidratação">
-      <p class="dica">Padrão da receita: <strong id="hid-padrao"></strong> · os outros percentuais são fixos. <span id="hid-nota"></span></p>
+      <p id="hid-texto" class="dica"></p>
+      <p id="aviso-hid" class="aviso" hidden></p>
     </section>
 
     <section class="card" aria-labelledby="t-resumo">
@@ -126,7 +158,7 @@
     <section class="card info" aria-labelledby="t-dicas">
       <h3 id="t-dicas">Dicas</h3>
       <ul id="dicas" class="lista-dicas"></ul>
-      <p class="dica">Azeite fixo em 3% em todas as receitas (adaptação por preferência). A fermentação depende de temperatura, farinha e tempo: use os sinais descritos, não só o relógio.</p>
+      <p class="dica"><span id="nota-azeite">Azeite fixo em 3% nesta receita (adaptação por preferência; não faz parte da receita napolitana original). </span>A fermentação depende de temperatura, farinha e tempo: use os sinais descritos, não só o relógio.</p>
       <h4>Fontes</h4>
       <ul id="fontes" class="lista-fontes"></ul>
     </section>
@@ -140,13 +172,14 @@
     <section class="card">
       <div class="rolagem">
         <table id="tabela-comparativo" class="tabela comparativo">
-          <thead><tr><th scope="col">Receita</th><th scope="col">Método</th><th scope="col">Hidrat.</th><th scope="col">Sal</th><th scope="col">Fermento</th><th scope="col">Azeite</th></tr></thead>
+          <thead><tr><th scope="col">Receita</th><th scope="col">Método</th><th scope="col">Hidrat.</th><th scope="col">Sal</th><th scope="col" id="comp-fermento">Fermento</th><th scope="col">Azeite</th><th scope="col" id="comp-farinha">Sua farinha</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
-      <p class="dica">* hidratação alterada por você. Fermento fresco e seco não têm o mesmo peso: seco ≈ fresco ÷ 3.</p>
+      <p class="dica">* hidratação alterada por você. A hidratação já vem ajustada à sua farinha. Fermento fresco e seco não têm o mesmo peso: seco instantâneo = fresco ÷ 3. A última coluna mostra a faixa de força (W) ideal de cada receita.</p>
     </section>
   </main>
+  </div>
 
   <script src="receitas.js"></script>
   <script src="app.js"></script>

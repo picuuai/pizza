@@ -76,22 +76,31 @@ a { color: var(--accent); }
 }
 .bt-icone.ativo { background: var(--amber-soft); color: var(--amber); border-color: transparent; }
 
+/* Menu das massas: barra fixa embaixo no celular, coluna lateral no computador */
 .abas {
-  position: sticky; top: 0; z-index: 5;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
   display: flex; gap: 8px; overflow-x: auto;
-  padding: 8px 16px 10px;
-  background: var(--bg);
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 16px rgb(60 30 10 / 0.08);
   scrollbar-width: none;
-  scroll-padding-inline: 16px;
+  scroll-padding-inline: 12px;
 }
 .abas::-webkit-scrollbar { display: none; }
 .aba {
-  flex: none; padding: 8px 14px; border-radius: 999px;
-  background: var(--surface); border: 1px solid var(--line);
+  flex: none; position: relative;
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 14px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--line);
   color: var(--ink); text-decoration: none; font-size: 0.92rem; white-space: nowrap;
 }
+.aba-prazo { display: none; }
 .aba.ativa { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .aba-comparativo { border-style: dashed; }
+.aba .compat-ponto { order: -1; }
+
+body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
 
 /* ---------- Conteúdo ---------- */
 
@@ -100,6 +109,69 @@ a { color: var(--accent); }
   padding: 4px 16px 32px;
   display: grid; gap: 14px;
 }
+
+@media (min-width: 900px) {
+  body { padding-bottom: 0; }
+  .topo { max-width: 1120px; margin: 0 auto; padding: 16px 24px 8px; }
+  .layout {
+    display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px;
+    max-width: 1120px; margin: 0 auto; padding: 0 24px;
+  }
+  .abas {
+    position: sticky; top: 16px; bottom: auto; align-self: start;
+    flex-direction: column; gap: 4px; overflow: visible;
+    padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    max-height: calc(100vh - 32px); overflow-y: auto;
+  }
+  .aba {
+    display: grid; grid-template-columns: 12px 1fr; column-gap: 10px; align-items: center;
+    border-radius: 12px; border-color: transparent; background: transparent;
+    padding: 10px 12px; white-space: normal;
+  }
+  .aba:hover { background: var(--surface-2); }
+  .aba .compat-ponto { grid-row: 1 / span 2; }
+  .aba-nome { font-weight: 600; }
+  .aba-prazo { display: block; grid-column: 2; font-size: 0.8rem; color: var(--muted); }
+  .aba.ativa .aba-prazo { color: inherit; opacity: 0.85; }
+  .aba-comparativo { margin-top: 6px; border: 1px dashed var(--line); grid-template-columns: 1fr; }
+  .aba-comparativo .aba-prazo { grid-column: 1; }
+  .conteudo { margin: 0; max-width: 720px; padding: 4px 0 48px; }
+  .capa img { aspect-ratio: auto; height: 320px; }
+}
+
+/* ---------- Farinha, fermento e compatibilidade ---------- */
+
+.insumos { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 10px; align-items: end; }
+.select {
+  width: 100%; padding: 11px 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--surface); font-size: 0.95rem;
+}
+.select:focus { outline: none; border-color: var(--accent); }
+.campo-w .stepper button { width: 34px; }
+.campo-fermento { margin-top: 16px; }
+.segmentos-2 { grid-template-columns: 1fr 1fr; margin-bottom: 0; }
+.dose { margin: 10px 0 0; }
+.dose strong { color: var(--accent); }
+
+.compat-ponto {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--muted); flex: none;
+}
+.compat-ok { background: var(--basil); }
+.compat-atencao { background: var(--amber); }
+.compat-forte { background: #4a7fc1; }
+.compat-fraca { background: var(--accent); }
+.aba.ativa .compat-ponto { box-shadow: 0 0 0 2px var(--accent-ink); }
+
+.compat { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); font-size: 0.9rem; }
+.compat:empty { display: none; }
+.compat p { margin: 6px 0 0; }
+.compat ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 6px; }
+.compat-titulo { display: flex; align-items: center; gap: 8px; }
+.compat-box-ok { background: var(--basil-soft); }
+.compat-box-atencao { background: var(--amber-soft); }
+.compat-box-fraca { background: var(--accent-soft); }
 
 .cabecalho h2 { margin: 6px 0 2px; font-size: 1.6rem; letter-spacing: -0.02em; }
 .prazo { margin: 0; color: var(--muted); }

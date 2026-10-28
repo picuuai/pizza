@@ -16,6 +16,9 @@ function carregarEstado() {
     massa: 1500,
     farinha: 1000,
     hidratacoes: {}, // hidratação escolhida por receita (fração)
+    fermentoTipo: 'fresco', // 'fresco' | 'seco' (instantâneo)
+    farinhaTipo: 'italiana',
+    farinhaW: 280,
   };
   try {
     const salvo = JSON.parse(localStorage.getItem(ARMAZENAMENTO));
@@ -33,15 +36,57 @@ function salvarEstado() {
   }
 }
 
-// ---------- Cálculo ----------
+// ---------- Farinha e fermento ----------
+
+// Fermento da receita convertido para o tipo escolhido (fração da farinha)
+function fermentoDe(receita) {
+  if (receita.tipoFermento === estado.fermentoTipo) return receita.fermento;
+  return estado.fermentoTipo === 'seco'
+    ? receita.fermento / FRESCO_POR_SECO
+    : receita.fermento * FRESCO_POR_SECO;
+}
+
+// Água que a farinha absorve bem, pela força W (valores indicativos)
+function hidratacaoMaxima(w) {
+  if (w < 200) return 0.58;
+  if (w < 240) return 0.60;
+  if (w < 280) return 0.63;
+  if (w < 320) return 0.67;
+  if (w < 360) return 0.70;
+  return 0.75;
+}
+
+// Padrão da receita, limitado ao que a farinha escolhida aguenta
+function hidratacaoPadrao(receita) {
+  return Math.min(receita.hidratacao, hidratacaoMaxima(estado.farinhaW));
+}
 
 function hidratacaoDe(receita) {
-  return estado.hidratacoes[receita.id] ?? receita.hidratacao;
+  return estado.hidratacoes[receita.id] ?? hidratacaoPadrao(receita);
 }
+
+function avaliarFarinha(receita) {
+  const w = estado.farinhaW;
+  const [a, b] = receita.wIdeal;
+  if (w < receita.wMin) return 'fraca';
+  if (w < a) return 'atencao';
+  if (w > b + 40) return 'forte';
+  return 'ok';
+}
+
+const ROTULO_COMPAT = {
+  ok: 'Farinha adequada',
+  atencao: 'Farinha no limite',
+  fraca: 'Farinha fraca para esta receita',
+  forte: 'Farinha mais forte que o necessário',
+};
+
+// ---------- Cálculo ----------
 
 function calcular(receita) {
   const h = hidratacaoDe(receita);
-  const soma = 1 + h + receita.sal + receita.fermento + receita.azeite + receita.acucar;
+  const fermento = fermentoDe(receita);
+  const soma = 1 + h + receita.sal + fermento + receita.azeite + receita.acucar;
 
   let farinha;
   if (estado.modo === 'bolas') farinha = (estado.bolas * estado.pesoBola) / soma;
@@ -54,11 +99,12 @@ function calcular(receita) {
     farinha,
     agua: farinha * h,
     sal: farinha * receita.sal,
-    fermento: farinha * receita.fermento,
+    fermento: farinha * fermento,
     azeite: farinha * receita.azeite,
     acucar: farinha * receita.acucar,
     total: farinha * soma,
   };
+  r.fermentoOutro = estado.fermentoTipo === 'seco' ? r.fermento * FRESCO_POR_SECO : r.fermento / FRESCO_POR_SECO;
 
   const peso = estado.pesoBola > 0 ? estado.pesoBola : 250;
   r.bolasInteiras = Math.floor(r.total / peso + 1e-9);
@@ -98,6 +144,8 @@ function lerDecimal(texto) {
   return Number.isFinite(n) ? n : NaN;
 }
 
+const nomeFermento = (tipo) => (tipo === 'seco' ? 'fermento seco instantâneo' : 'fermento fresco');
+
 // ---------- Ilustrações das etapas ----------
 
 const ICONES = {
@@ -136,18 +184,31 @@ function receitaAtual() {
   return RECEITAS.find((r) => r.id === estado.receitaId) || RECEITAS[0];
 }
 
-function montarAbas() {
+function montarMenu() {
   const nav = $('#abas');
-  const itens = RECEITAS.map((r) => ({ id: r.id, nome: r.nome }));
-  itens.push({ id: 'comparativo', nome: 'Comparativo' });
-  nav.innerHTML = '';
-  for (const item of itens) {
-    const a = document.createElement('a');
-    a.href = '#' + item.id;
-    a.className = 'aba' + (item.id === 'comparativo' ? ' aba-comparativo' : '');
-    a.dataset.id = item.id;
-    a.textContent = item.nome;
-    nav.appendChild(a);
+  nav.innerHTML = RECEITAS.map((r) => `
+    <a href="#${r.id}" class="aba" data-id="${r.id}">
+      <span class="aba-nome">${r.nome}</span>
+      <span class="aba-prazo">${r.curto}</span>
+      <i class="compat-ponto" aria-hidden="true"></i>
+    </a>`).join('') + `
+    <a href="#comparativo" class="aba aba-comparativo" data-id="comparativo">
+      <span class="aba-nome">Comparativo</span>
+      <span class="aba-prazo">todas as receitas</span>
+    </a>`;
+
+  $('#sel-farinha').innerHTML = FARINHAS.map((f) => `<option value="${f.id}">${f.nome}</option>`).join('');
+}
+
+// Bolinha de compatibilidade da farinha em cada item do menu
+function marcarCompatMenu() {
+  for (const a of document.querySelectorAll('.aba[data-id]')) {
+    const r = RECEITAS.find((x) => x.id === a.dataset.id);
+    const ponto = a.querySelector('.compat-ponto');
+    if (!r || !ponto) continue;
+    const s = avaliarFarinha(r);
+    ponto.className = 'compat-ponto compat-' + s;
+    a.title = `${r.nome}: ${ROTULO_COMPAT[s].toLowerCase()} (W ${estado.farinhaW})`;
   }
 }
 
@@ -158,7 +219,7 @@ function marcarAba(id) {
     a.classList.toggle('ativa', ativa);
     if (ativa) {
       a.setAttribute('aria-current', 'page');
-      // rola só a barra de abas (scrollIntoView também rolaria a página)
+      // rola só a barra do menu (scrollIntoView também rolaria a página)
       nav.scrollTo({ left: a.offsetLeft - (nav.clientWidth - a.offsetWidth) / 2 });
     } else {
       a.removeAttribute('aria-current');
@@ -183,21 +244,26 @@ function mostrarComparativo() {
   $('#tela-comparativo').hidden = false;
   marcarAba('comparativo');
   document.title = 'Comparativo · Massa de Pizza';
+  $('#comp-fermento').textContent = 'Fermento ' + (estado.fermentoTipo === 'seco' ? 'seco' : 'fresco');
+  $('#comp-farinha').textContent = `Sua farinha (W ${estado.farinhaW})`;
   const corpo = $('#tabela-comparativo tbody');
   corpo.innerHTML = '';
   for (const r of RECEITAS) {
     const tr = document.createElement('tr');
     const h = hidratacaoDe(r);
-    const hTexto = pct(h) + (h !== r.hidratacao ? ' *' : '');
+    const hTexto = pct(h) + (r.id in estado.hidratacoes ? ' *' : '');
+    const s = avaliarFarinha(r);
     tr.innerHTML = `
       <th scope="row"><a href="#${r.id}">${r.nome}</a><small>${r.prazo}</small></th>
       <td>${r.metodo}</td>
       <td>${hTexto}</td>
       <td>${pct(r.sal)}</td>
-      <td>${pct(r.fermento)} <span class="tag tag-${r.tipoFermento}">${r.tipoFermento}</span></td>
-      <td>${pct(r.azeite)}</td>`;
+      <td>${pct(fermentoDe(r))}</td>
+      <td>${r.azeite ? pct(r.azeite) : '–'}</td>
+      <td><span class="compat-ponto compat-${s}"></span> W ${r.wIdeal[0]}–${r.wIdeal[1]}</td>`;
     corpo.appendChild(tr);
   }
+  marcarCompatMenu();
   salvarEstado();
 }
 
@@ -213,15 +279,14 @@ function mostrarReceita() {
   $('#resumo').textContent = r.resumo;
   $('#prazo').textContent = r.prazo;
   $('#metodo').textContent = 'Método: ' + r.metodo;
-  const tipo = $('#tipo-fermento');
-  tipo.textContent = 'Fermento ' + r.tipoFermento;
-  tipo.className = 'tag tag-' + r.tipoFermento;
+  $('#azeite-tag').textContent = r.azeite ? `Com azeite ${pct(r.azeite)}` : 'Sem azeite';
 
   $('#linha-tempo').innerHTML = r.linhaTempo.map((t) => `<li>${t}</li>`).join('');
   $('#dicas').innerHTML = r.dicas.map((d) => `<li>${d}</li>`).join('');
   $('#fontes').innerHTML = r.fontes
     .map((f) => `<li><a href="${f.url}" target="_blank" rel="noopener">${f.nome}</a></li>`)
     .join('');
+  $('#nota-azeite').hidden = !r.azeite;
 
   sincronizarEntradas();
   atualizar();
@@ -236,35 +301,102 @@ function sincronizarEntradas() {
   for (const p of document.querySelectorAll('[data-painel]')) {
     p.hidden = p.dataset.painel !== estado.modo;
   }
+  for (const b of document.querySelectorAll('[data-fermento]')) {
+    const ativo = b.dataset.fermento === estado.fermentoTipo;
+    b.classList.toggle('ativo', ativo);
+    b.setAttribute('aria-pressed', ativo);
+  }
   $('#in-bolas').value = estado.bolas;
   $('#in-peso').value = estado.pesoBola;
   $('#in-massa').value = estado.massa;
   $('#in-farinha').value = estado.farinha;
-  sincronizarHidratacao();
+  $('#sel-farinha').value = estado.farinhaTipo;
+  $('#in-w').value = estado.farinhaW;
+  const f = FARINHAS.find((x) => x.id === estado.farinhaTipo);
+  $('#farinha-dica').textContent = f ? f.dica : '';
 }
 
 function sincronizarHidratacao() {
   const r = receitaAtual();
-  const h = hidratacaoDe(r) * 100;
-  $('#in-hid').value = fmt1.format(h);
-  $('#slider-hid').value = h;
-  $('#hid-padrao').textContent = fmtPct.format(r.hidratacao * 100) + '%';
-  const alterada = Math.abs(hidratacaoDe(r) - r.hidratacao) > 1e-9;
+  const atual = hidratacaoDe(r);
+  const padrao = hidratacaoPadrao(r);
+  const max = hidratacaoMaxima(estado.farinhaW);
+  $('#in-hid').value = fmt1.format(atual * 100);
+  $('#slider-hid').value = atual * 100;
+
+  let texto = `Padrão da receita: <strong>${pct(r.hidratacao)}</strong>`;
+  if (padrao < r.hidratacao - 1e-9) {
+    texto += ` · ajustado para <strong>${pct(padrao)}</strong> porque farinha W ${estado.farinhaW} absorve até ~${pct(max)}`;
+  }
+  texto += '. Os outros percentuais são fixos.';
+  if (r.notaHidratacao) texto += ' ' + r.notaHidratacao;
+  const pf = r.prefermento;
+  if (pf) {
+    const de = pf.artigo === 'a' ? 'da' : 'do';
+    const dele = pf.artigo === 'a' ? 'dela' : 'dele';
+    texto += ` A água ${de} ${pf.nome.toLowerCase()} é fixa (${pct(pf.agua)} da farinha ${dele}); mudar a hidratação altera só a água da massa final.`;
+  }
+  $('#hid-texto').innerHTML = texto;
+
+  const alterada = r.id in estado.hidratacoes;
   $('#bt-restaurar').hidden = !alterada;
   $('#card-hid').classList.toggle('alterada', alterada);
-  const pf = r.prefermento;
-  $('#hid-nota').textContent = pf
-    ? `A água do ${pf.nome.toLowerCase()} é fixa (${pct(pf.agua)} da farinha dele); mudar a hidratação altera só a água da massa final.`
+  const acima = atual > max + 1e-9;
+  $('#aviso-hid').hidden = !acima;
+  $('#aviso-hid').textContent = acima
+    ? `Acima do recomendado para farinha W ${estado.farinhaW} (até ~${pct(max)}): a massa tende a ficar mole, grudenta e difícil de abrir.`
     : '';
+}
+
+// Análise da farinha escolhida para a receita, com o que fazer para manter a qualidade
+function renderCompat(r, c) {
+  const w = estado.farinhaW;
+  const [a, b] = r.wIdeal;
+  const s = avaliarFarinha(r);
+  const max = hidratacaoMaxima(w);
+  let html = `<strong class="compat-titulo"><span class="compat-ponto compat-${s}"></span>${ROTULO_COMPAT[s]}</strong>`;
+
+  if (s === 'ok') {
+    html += `<p>W ${w} está na faixa ideal (W ${a}–${b}) para esta fermentação.</p>`;
+  } else if (s === 'atencao') {
+    html += `<p>W ${w} está abaixo do ideal (W ${a}–${b}), mas funciona. Mantenha a hidratação até ~${pct(max)} e observe a massa: se amolecer ou grudar demais, encurte a fermentação das bolas.</p>`;
+  } else if (s === 'forte') {
+    html += `<p>W ${w} é mais forte que o necessário (ideal W ${a}–${b}): a massa fica mais elástica e pode encolher ao abrir. Deixe as bolas descansarem bem antes de abrir; se quiser, aumente a hidratação até ~${pct(max)}.</p>`;
+  } else {
+    html += `<p>W ${w} é fraca para esta fermentação (mínimo ~W ${r.wMin}, ideal W ${a}–${b}): a massa tende a amolecer, rasgar e perder o gás antes do fim.</p><ul>`;
+    const p = (a - w) / (W_MANITOBA - w);
+    if (p > 0 && p <= 0.6) {
+      const g = c.farinha * p;
+      html += `<li><strong>Reforce com Manitoba:</strong> use ~${fmt0.format(p * 100)}% de Manitoba na farinha — ≈ ${gramas(g, 0)} de Manitoba + ${gramas(c.farinha - g, 0)} da sua farinha (valor aproximado).</li>`;
+    }
+    const alternativas = RECEITAS.filter((x) => x.id !== r.id && w >= x.wMin);
+    if (alternativas.length) {
+      html += `<li><strong>Ou escolha uma receita adequada:</strong> ${alternativas.map((x) => `<a href="#${x.id}">${x.nome}</a>`).join(', ')}.</li>`;
+    } else {
+      html += '<li><strong>Nenhuma receita longa combina com essa farinha sozinha.</strong> Com W abaixo de ~200 ela aguenta só fermentações curtas (3–5 h): reforce com Manitoba ou troque por uma farinha mais forte.</li>';
+    }
+    html += '</ul>';
+  }
+  $('#compat').className = 'compat compat-box-' + s;
+  $('#compat').innerHTML = html;
+
+  const outro = estado.fermentoTipo === 'seco' ? 'fresco' : 'seco instantâneo';
+  $('#dose-fermento').innerHTML =
+    `Nesta receita: <strong>${gramas(c.fermento, 2)}</strong> de ${nomeFermento(estado.fermentoTipo)} ` +
+    `(equivale a ${gramas(c.fermentoOutro, 2)} de ${outro}).`;
 }
 
 // Linhas da tabela de ingredientes de cada etapa
 function ingredientesDaFase(r, c, tipo) {
-  const fermentoExtra = r.tipoFermento === 'seco'
-    ? `≈ ${gramas(c.fermento * 3, 2)} se usar fresco`
-    : `≈ ${gramas(c.fermento / 3, 2)} se usar seco`;
-  const fermento = { nome: 'Fermento ' + r.tipoFermento, g: gramas(c.fermento, 2), extra: fermentoExtra };
-  const azeite = { nome: 'Azeite', nota: pct(r.azeite), g: gramas(c.azeite, 1), extra: `≈ ${fmt0.format(c.azeite * ML_POR_G_AZEITE)} ml` };
+  const outro = estado.fermentoTipo === 'seco' ? 'fresco' : 'seco';
+  const fermento = {
+    nome: 'Fermento ' + (estado.fermentoTipo === 'seco' ? 'seco' : 'fresco'),
+    g: gramas(c.fermento, 2),
+    extra: `≈ ${gramas(c.fermentoOutro, 2)} se usar ${outro}`,
+  };
+  const azeite = r.azeite
+    ? [{ nome: 'Azeite', nota: pct(r.azeite), g: gramas(c.azeite, 1), extra: `≈ ${fmt0.format(c.azeite * ML_POR_G_AZEITE)} ml` }]
+    : [];
   const sal = { nome: 'Sal', nota: pct(r.sal), g: gramas(c.sal, 1) };
   const acucar = r.acucar ? [{ nome: 'Açúcar', nota: pct(r.acucar), g: gramas(c.acucar, 1) }] : [];
   const pf = r.prefermento;
@@ -273,7 +405,7 @@ function ingredientesDaFase(r, c, tipo) {
     return [
       { nome: 'Farinha', nota: `${pct(pf.farinha)} do total`, g: gramas(c.pfFarinha, 0) },
       { nome: 'Água', nota: `${pct(pf.agua)} da farinha`, g: gramas(c.pfAgua, 0) },
-      { ...fermento, nota: `${pct(pf.fermento)} da farinha` },
+      { ...fermento, nota: `${pct(c.fermento / c.pfFarinha || 0)} da farinha` },
     ];
   }
   if (tipo === 'final') {
@@ -282,7 +414,7 @@ function ingredientesDaFase(r, c, tipo) {
       { nome: 'Farinha', nota: 'restante', g: gramas(c.finFarinha, 0) },
       { nome: 'Água', nota: 'restante', g: gramas(c.finAgua, 0), agua: true },
       sal,
-      azeite,
+      ...azeite,
       ...acucar,
     ];
   }
@@ -290,8 +422,8 @@ function ingredientesDaFase(r, c, tipo) {
     { nome: 'Farinha', nota: '100%', g: gramas(c.farinha, 0) },
     { nome: 'Água', nota: pct(c.hidratacao), g: gramas(c.agua, 0), agua: true },
     sal,
-    { ...fermento, nota: pct(r.fermento) },
-    azeite,
+    { ...fermento, nota: pct(fermentoDe(r)) },
+    ...azeite,
     ...acucar,
   ];
 }
@@ -311,14 +443,17 @@ function tabelaIngredientes(linhas) {
 
 // Valores que entram no texto do modo de preparo
 function valoresDoTexto(r, c) {
+  const forte = (t) => `<strong>${t}</strong>`;
+  const fermento = gramas(c.fermento, 2);
+  const agua90 = gramas(c.agua * 0.9, 0);
   const v = {
     farinha: gramas(c.farinha, 0),
     agua: gramas(c.agua, 0),
     sal: gramas(c.sal, 1),
-    fermento: gramas(c.fermento, 2),
+    fermento,
     azeite: gramas(c.azeite, 1),
     azeiteMl: fmt0.format(c.azeite * ML_POR_G_AZEITE) + ' ml',
-    agua90: gramas(c.agua * 0.9, 0),
+    agua90,
     aguaResto: gramas(c.agua - Math.round(c.agua * 0.9), 0),
     bolas: String(estado.modo === 'bolas' ? estado.bolas : c.bolasInteiras),
     pesoBola: gramas(estado.pesoBola, 0),
@@ -334,11 +469,17 @@ function valoresDoTexto(r, c) {
       finAguaResto: gramas(c.finAgua - parte, 0),
     });
   }
+  for (const k in v) v[k] = forte(v[k]);
+  // Trechos de texto (já formatados) que dependem do fermento escolhido
+  v.fermentoNome = nomeFermento(estado.fermentoTipo);
+  v.fermentoDissolver = estado.fermentoTipo === 'seco'
+    ? `Misture ${forte(fermento)} de fermento seco instantâneo em ${forte(agua90)} de água.`
+    : `Esfarele ${forte(fermento)} de fermento fresco em ${forte(agua90)} de água e mexa até dissolver.`;
   return v;
 }
 
 function preencher(texto, v) {
-  return texto.replace(/\{(\w+)\}/g, (m, k) => (k in v ? `<strong>${v[k]}</strong>` : m));
+  return texto.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
 }
 
 function renderFases(r, c) {
@@ -372,6 +513,10 @@ function atualizar() {
   const r = receitaAtual();
   const c = calcular(r);
 
+  sincronizarHidratacao();
+  renderCompat(r, c);
+  marcarCompatMenu();
+
   $('#total').textContent = gramas(c.total, 0);
   const peso = estado.pesoBola > 0 ? estado.pesoBola : 250;
   let bolasTexto = `${c.bolasInteiras} × ${fmt0.format(peso)} g`;
@@ -389,9 +534,8 @@ function definirHidratacao(percentual) {
   if (!Number.isFinite(percentual)) return;
   const h = Math.min(HID_MAX, Math.max(HID_MIN, Math.round(percentual * 10) / 10));
   const r = receitaAtual();
-  if (Math.abs(h / 100 - r.hidratacao) < 1e-9) delete estado.hidratacoes[r.id];
+  if (Math.abs(h / 100 - hidratacaoPadrao(r)) < 0.0005) delete estado.hidratacoes[r.id];
   else estado.hidratacoes[r.id] = h / 100;
-  sincronizarHidratacao();
   atualizar();
 }
 
@@ -410,10 +554,27 @@ function ligarEventos() {
     });
   }
 
-  const numerico = (sel, chave, min) => {
+  for (const b of document.querySelectorAll('[data-fermento]')) {
+    b.addEventListener('click', () => {
+      estado.fermentoTipo = b.dataset.fermento;
+      sincronizarEntradas();
+      atualizar();
+    });
+  }
+
+  $('#sel-farinha').addEventListener('change', (e) => {
+    const f = FARINHAS.find((x) => x.id === e.target.value);
+    estado.farinhaTipo = f.id;
+    estado.farinhaW = f.w;
+    sincronizarEntradas();
+    atualizar();
+  });
+
+  const MINIMOS = { bolas: 1, pesoBola: 1, massa: 0, farinha: 0, farinhaW: 100 };
+  const numerico = (sel, chave) => {
     $(sel).addEventListener('input', (e) => {
       const n = e.target.valueAsNumber;
-      if (Number.isFinite(n) && n >= min) {
+      if (Number.isFinite(n) && n >= MINIMOS[chave]) {
         estado[chave] = n;
         atualizar();
       }
@@ -422,15 +583,16 @@ function ligarEventos() {
       e.target.value = estado[chave];
     });
   };
-  numerico('#in-bolas', 'bolas', 1);
-  numerico('#in-peso', 'pesoBola', 1);
-  numerico('#in-massa', 'massa', 0);
-  numerico('#in-farinha', 'farinha', 0);
+  numerico('#in-bolas', 'bolas');
+  numerico('#in-peso', 'pesoBola');
+  numerico('#in-massa', 'massa');
+  numerico('#in-farinha', 'farinha');
+  numerico('#in-w', 'farinhaW');
 
   for (const b of document.querySelectorAll('[data-passo]')) {
     b.addEventListener('click', () => {
       const [chave, passo] = b.dataset.passo.split(':');
-      const min = chave === 'bolas' ? 1 : 10;
+      const min = chave === 'bolas' ? 1 : Math.max(10, MINIMOS[chave]);
       estado[chave] = Math.max(min, (Number(estado[chave]) || 0) + Number(passo));
       sincronizarEntradas();
       atualizar();
@@ -444,7 +606,10 @@ function ligarEventos() {
   });
   $('#hid-menos').addEventListener('click', () => definirHidratacao(hidratacaoDe(receitaAtual()) * 100 - 0.5));
   $('#hid-mais').addEventListener('click', () => definirHidratacao(hidratacaoDe(receitaAtual()) * 100 + 0.5));
-  $('#bt-restaurar').addEventListener('click', () => definirHidratacao(receitaAtual().hidratacao * 100));
+  $('#bt-restaurar').addEventListener('click', () => {
+    delete estado.hidratacoes[receitaAtual().id];
+    atualizar();
+  });
 
   configurarTelaAcesa();
 }
@@ -487,7 +652,7 @@ function configurarTelaAcesa() {
   render();
 }
 
-montarAbas();
+montarMenu();
 ligarEventos();
 if (!location.hash) history.replaceState(null, '', '#' + receitaAtual().id);
 rota();

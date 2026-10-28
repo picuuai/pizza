@@ -200,7 +200,6 @@ a { color: var(--accent); }
 .tabela .pct { text-align: right; color: var(--muted); white-space: nowrap; }
 .tabela .g { text-align: right; white-space: nowrap; }
 .tabela tbody .g { font-weight: 700; font-size: 1.1rem; }
-.cadeado { font-size: 0.7rem; margin-right: 4px; opacity: 0.6; }
 .linha-agua .pct { color: var(--accent); font-weight: 600; }
 .linha-agua .g { color: var(--accent); }
 
@@ -211,16 +210,88 @@ a { color: var(--accent); }
 .totais span { display: block; font-size: 0.8rem; color: var(--muted); }
 .totais strong { font-size: 1.1rem; font-variant-numeric: tabular-nums; }
 
-.lista { margin: 0; }
-.lista div { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); }
-.lista dt { color: var(--ink); }
-.lista dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
-.lista .soma { border-bottom: 0; }
-.lista .soma dt, .lista .soma dd { color: var(--muted); }
+/* ---------- Capa e linha do tempo ---------- */
 
-.info dl { margin: 0; display: grid; gap: 2px; }
-.info dt { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 8px; }
-.info dd { margin: 0; overflow-wrap: anywhere; }
+.capa { margin: 4px 0 12px; position: relative; }
+.capa img {
+  display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+  border-radius: var(--radius); background: var(--surface-2);
+}
+.capa figcaption, .foto-passo figcaption { font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
+.capa figcaption a, .foto-passo figcaption a { color: inherit; }
+
+.resumo { margin: 4px 0 0; }
+.prazo { margin-top: 8px; font-size: 0.9rem; }
+
+.linha-tempo {
+  list-style: none; margin: 12px 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 6px 0; align-items: center;
+  font-size: 0.82rem;
+}
+.linha-tempo li {
+  position: relative;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 8px; padding: 3px 9px;
+}
+.linha-tempo li + li { margin-left: 18px; }
+.linha-tempo li + li::before {
+  content: "→"; color: var(--muted);
+  position: absolute; left: -15px; top: 50%; transform: translateY(-50%);
+}
+.linha-tempo li:last-child { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 600; }
+
+/* ---------- Etapas e modo de fazer ---------- */
+
+.fases { display: grid; gap: 14px; }
+.fase-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.fase-topo h3 { margin: 0; font-size: 1.15rem; }
+.quando {
+  font-size: 0.78rem; color: var(--basil); background: var(--basil-soft);
+  border-radius: 999px; padding: 2px 10px;
+}
+.modo-titulo { margin: 20px 0 4px; font-size: 1rem; }
+
+.passos { list-style: none; margin: 0; padding: 0; counter-reset: passo; }
+.passo {
+  counter-increment: passo;
+  display: grid; grid-template-columns: 44px 1fr; gap: 12px;
+  padding: 14px 0; border-bottom: 1px solid var(--line);
+  position: relative;
+}
+.passo:last-child { border-bottom: 0; padding-bottom: 0; }
+.passo-icone {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--accent-soft); color: var(--accent);
+  display: grid; place-items: center; position: relative;
+}
+.passo-icone svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.passo-icone::after {
+  content: counter(passo);
+  position: absolute; top: -6px; left: -6px;
+  min-width: 20px; height: 20px; border-radius: 10px;
+  background: var(--accent); color: var(--accent-ink);
+  font-size: 0.72rem; font-weight: 700; display: grid; place-items: center;
+}
+.passo-corpo { min-width: 0; }
+.passo-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.passo-topo strong { font-size: 1rem; }
+.tempo {
+  flex: none; font-size: 0.75rem; color: var(--amber); background: var(--amber-soft);
+  border-radius: 999px; padding: 1px 8px; white-space: nowrap;
+}
+.passo p { margin: 4px 0 0; font-size: 0.95rem; }
+.passo p strong { color: var(--accent); white-space: nowrap; }
+.foto-passo { margin: 10px 0 0; }
+.foto-passo img {
+  display: block; width: 100%; max-height: 220px; object-fit: cover;
+  border-radius: 12px; background: var(--surface-2);
+}
+
+/* ---------- Dicas e fontes ---------- */
+
+.info h4 { margin: 16px 0 6px; }
+.lista-dicas, .lista-fontes { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.lista-fontes { font-size: 0.88rem; overflow-wrap: anywhere; }
 
 .rolagem { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
 .comparativo { min-width: 520px; font-size: 0.9rem; }

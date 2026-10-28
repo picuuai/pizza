@@ -31,9 +31,12 @@
 
   <main id="tela-receita" class="conteudo">
     <section class="cabecalho">
+      <div id="capa"></div>
       <h2 id="nome"></h2>
-      <p id="prazo" class="prazo"></p>
+      <p id="resumo" class="resumo"></p>
       <p class="tags"><span id="metodo" class="tag"></span> <span id="tipo-fermento" class="tag"></span></p>
+      <p id="prazo" class="prazo"></p>
+      <ol id="linha-tempo" class="linha-tempo" aria-label="Linha do tempo"></ol>
     </section>
 
     <section class="card" aria-labelledby="t-quantidade">
@@ -104,48 +107,28 @@
         <button id="hid-mais" type="button" class="bt-redondo" aria-label="Aumentar 0,5%">+</button>
       </div>
       <input id="slider-hid" type="range" min="50" max="85" step="0.5" aria-label="Hidratação">
-      <p class="dica">Padrão da receita: <strong id="hid-padrao"></strong> · os outros percentuais são fixos.</p>
+      <p class="dica">Padrão da receita: <strong id="hid-padrao"></strong> · os outros percentuais são fixos. <span id="hid-nota"></span></p>
     </section>
 
-    <section class="card" aria-labelledby="t-ingredientes">
-      <h3 id="t-ingredientes">Ingredientes</h3>
-      <table id="tabela-ingredientes" class="tabela">
-        <thead><tr><th scope="col">Ingrediente</th><th scope="col" class="pct">%</th><th scope="col" class="g">Quantidade</th></tr></thead>
-        <tbody></tbody>
-      </table>
+    <section class="card" aria-labelledby="t-resumo">
+      <h3 id="t-resumo">Resumo</h3>
       <div class="totais">
         <div><span>Massa total</span><strong id="total"></strong></div>
         <div><span>Bolas</span><strong id="bolas-resultado"></strong></div>
+        <div><span>Farinha total</span><strong id="farinha-total"></strong></div>
+        <div><span>Água total</span><strong id="agua-total"></strong></div>
       </div>
       <p id="aviso-fermento" class="aviso" hidden>Menos de 1 g de fermento: use uma balança de precisão (0,01 g).</p>
     </section>
 
-    <section id="card-biga" class="card" aria-labelledby="t-biga" hidden>
-      <h3 id="t-biga">Etapas da biga</h3>
-      <h4>1. Biga <small>(<span id="biga-pct-farinha"></span> da farinha, <span id="biga-pct-agua"></span> de água)</small></h4>
-      <dl class="lista">
-        <div><dt>Farinha</dt><dd id="biga-farinha"></dd></div>
-        <div><dt>Água</dt><dd id="biga-agua"></dd></div>
-        <div><dt>Fermento seco (todo)</dt><dd id="biga-fermento"></dd></div>
-        <div class="soma"><dt>Peso da biga</dt><dd id="biga-peso"></dd></div>
-      </dl>
-      <h4>2. Massa final <small>(biga + o restante)</small></h4>
-      <dl class="lista">
-        <div><dt>Farinha</dt><dd id="final-farinha"></dd></div>
-        <div><dt>Água</dt><dd id="final-agua"></dd></div>
-        <div><dt>Sal</dt><dd id="final-sal"></dd></div>
-        <div><dt>Azeite</dt><dd id="final-azeite"></dd></div>
-      </dl>
-    </section>
+    <div id="fases" class="fases"></div>
 
-    <section class="card info" aria-labelledby="t-info">
-      <h3 id="t-info">Sobre a receita</h3>
-      <dl>
-        <dt>Origem</dt><dd id="info-origem"></dd>
-        <dt>Observação</dt><dd id="info-obs"></dd>
-        <dt>Fonte</dt><dd id="info-fonte"></dd>
-      </dl>
-      <p class="dica">Azeite fixo em 3% (adaptação por preferência). Fermentação depende de temperatura, farinha e tempo.</p>
+    <section class="card info" aria-labelledby="t-dicas">
+      <h3 id="t-dicas">Dicas</h3>
+      <ul id="dicas" class="lista-dicas"></ul>
+      <p class="dica">Azeite fixo em 3% em todas as receitas (adaptação por preferência). A fermentação depende de temperatura, farinha e tempo: use os sinais descritos, não só o relógio.</p>
+      <h4>Fontes</h4>
+      <ul id="fontes" class="lista-fontes"></ul>
     </section>
   </main>
 
@@ -157,7 +140,7 @@
     <section class="card">
       <div class="rolagem">
         <table id="tabela-comparativo" class="tabela comparativo">
-          <thead><tr><th scope="col">Receita</th><th scope="col">Hidrat.</th><th scope="col">Sal</th><th scope="col">Fermento</th><th scope="col">Azeite</th><th scope="col">Açúcar</th></tr></thead>
+          <thead><tr><th scope="col">Receita</th><th scope="col">Método</th><th scope="col">Hidrat.</th><th scope="col">Sal</th><th scope="col">Fermento</th><th scope="col">Azeite</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

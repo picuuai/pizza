@@ -64,17 +64,14 @@ function calcular(receita) {
   r.bolasInteiras = Math.floor(r.total / peso + 1e-9);
   r.sobra = r.total - r.bolasInteiras * peso;
 
-  if (receita.biga) {
-    const bigaFarinha = farinha * receita.biga.farinha;
-    const bigaAgua = bigaFarinha * receita.biga.agua;
-    r.biga = {
-      farinha: bigaFarinha,
-      agua: bigaAgua,
-      fermento: r.fermento,
-      peso: bigaFarinha + bigaAgua + r.fermento,
-      farinhaFinal: farinha - bigaFarinha,
-      aguaFinal: r.agua - bigaAgua,
-    };
+  // Pré-fermento (biga/poolish): sua água é fixa; a hidratação escolhida só muda a água da massa final
+  const pf = receita.prefermento;
+  if (pf) {
+    r.pfFarinha = farinha * pf.farinha;
+    r.pfAgua = r.pfFarinha * pf.agua;
+    r.pfPeso = r.pfFarinha + r.pfAgua + r.fermento;
+    r.finFarinha = farinha - r.pfFarinha;
+    r.finAgua = r.agua - r.pfAgua;
   }
   return r;
 }
@@ -99,6 +96,36 @@ function pct(fracao) {
 function lerDecimal(texto) {
   const n = parseFloat(String(texto).replace(',', '.'));
   return Number.isFinite(n) ? n : NaN;
+}
+
+// ---------- Ilustrações das etapas ----------
+
+const ICONES = {
+  balanca: '<rect x="7" y="22" width="34" height="18" rx="4"/><rect x="15" y="27" width="18" height="7" rx="1.5"/><path d="M11 22c0-6 6-10 13-10s13 4 13 10"/>',
+  tigela: '<path d="M6 22h36c0 10-8 18-18 18S6 32 6 22z"/><path d="M33 5l-9 17"/><path d="M12 22c2-4 6-6 10-6"/>',
+  sova: '<path d="M8 38c0-9 7-15 16-15s16 6 16 15z"/><path d="M14 16a12 12 0 0 1 20 0"/><path d="M31 11l3 5-6 1"/>',
+  dobra: '<rect x="9" y="18" width="30" height="20" rx="6"/><path d="M14 22c3-9 17-9 20 0"/><path d="M31 15l3 6-6 1"/>',
+  pote: '<path d="M14 9h20v4l3 4v21a4 4 0 0 1-4 4H15a4 4 0 0 1-4-4V17l3-4z"/><path d="M11 24h26"/><circle cx="19" cy="31" r="2"/><circle cx="27" cy="35" r="1.5"/><circle cx="29" cy="29" r="2.5"/>',
+  relogio: '<circle cx="24" cy="26" r="15"/><path d="M24 17v9l6 4"/><path d="M20 6h8"/>',
+  geladeira: '<rect x="12" y="5" width="24" height="38" rx="3"/><path d="M12 18h24M17 10v4M17 23v7"/><path d="M28 30l2-2m0 0l2 2m-2-2v6"/>',
+  bolas: '<ellipse cx="13" cy="31" rx="8" ry="6"/><ellipse cx="35" cy="31" rx="8" ry="6"/><ellipse cx="24" cy="22" rx="8" ry="6"/><path d="M3 39h42"/>',
+  abrir: '<ellipse cx="24" cy="27" rx="17" ry="10"/><ellipse cx="24" cy="27" rx="12" ry="6"/><path d="M2 27h3M43 27h3M24 8v6M21 11l3 3 3-3"/>',
+  forno: '<path d="M6 41V29a18 18 0 0 1 36 0v12z"/><path d="M15 41v-8a9 9 0 0 1 18 0v8"/><path d="M21 39c0-3 3-4 3-7 0 3 3 4 3 7"/><path d="M3 41h42"/>',
+  termometro: '<path d="M21 8a3 3 0 0 1 6 0v20a7 7 0 1 1-6 0z"/><circle cx="24" cy="34" r="3"/><path d="M24 31V15M30 12h4M30 18h4M30 24h4"/>',
+  dedo: '<ellipse cx="24" cy="36" rx="17" ry="7"/><path d="M21 33V12a3 3 0 0 1 6 0v21"/><path d="M15 30c3 2 15 2 18 0"/>',
+};
+
+function icone(nome) {
+  return `<svg viewBox="0 0 48 48" aria-hidden="true">${ICONES[nome] || ICONES.tigela}</svg>`;
+}
+
+function figura(chave, classe) {
+  const f = FOTOS[chave];
+  if (!f) return '';
+  return `<figure class="${classe}">
+    <img src="${f.url}" alt="${f.alt}" loading="lazy" onerror="this.closest('figure').hidden=true">
+    <figcaption>Foto: <a href="${f.pagina}" target="_blank" rel="noopener">${f.autor}</a> · ${f.licenca} · Wikimedia Commons</figcaption>
+  </figure>`;
 }
 
 // ---------- Interface ----------
@@ -147,6 +174,7 @@ function rota() {
     return;
   }
   if (RECEITAS.some((r) => r.id === id)) estado.receitaId = id;
+  else if (id) history.replaceState(null, '', '#' + receitaAtual().id);
   mostrarReceita();
 }
 
@@ -154,6 +182,7 @@ function mostrarComparativo() {
   $('#tela-receita').hidden = true;
   $('#tela-comparativo').hidden = false;
   marcarAba('comparativo');
+  document.title = 'Comparativo · Massa de Pizza';
   const corpo = $('#tabela-comparativo tbody');
   corpo.innerHTML = '';
   for (const r of RECEITAS) {
@@ -162,11 +191,11 @@ function mostrarComparativo() {
     const hTexto = pct(h) + (h !== r.hidratacao ? ' *' : '');
     tr.innerHTML = `
       <th scope="row"><a href="#${r.id}">${r.nome}</a><small>${r.prazo}</small></th>
+      <td>${r.metodo}</td>
       <td>${hTexto}</td>
       <td>${pct(r.sal)}</td>
       <td>${pct(r.fermento)} <span class="tag tag-${r.tipoFermento}">${r.tipoFermento}</span></td>
-      <td>${pct(r.azeite)}</td>
-      <td>${r.acucar ? pct(r.acucar) : '–'}</td>`;
+      <td>${pct(r.azeite)}</td>`;
     corpo.appendChild(tr);
   }
   salvarEstado();
@@ -179,27 +208,20 @@ function mostrarReceita() {
   marcarAba(r.id);
   document.title = r.nome + ' · Massa de Pizza';
 
+  $('#capa').innerHTML = figura(r.foto, 'capa');
   $('#nome').textContent = r.nome;
+  $('#resumo').textContent = r.resumo;
   $('#prazo').textContent = r.prazo;
   $('#metodo').textContent = 'Método: ' + r.metodo;
   const tipo = $('#tipo-fermento');
   tipo.textContent = 'Fermento ' + r.tipoFermento;
   tipo.className = 'tag tag-' + r.tipoFermento;
 
-  $('#info-origem').textContent = r.origem;
-  $('#info-obs').textContent = r.observacao;
-  const fonte = $('#info-fonte');
-  if (r.fonte) {
-    fonte.innerHTML = '';
-    const a = document.createElement('a');
-    a.href = r.fonte;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.textContent = r.fonte.replace(/^https?:\/\/(www\.)?/, '').slice(0, 48) + (r.fonte.length > 56 ? '…' : '');
-    fonte.appendChild(a);
-  } else {
-    fonte.textContent = 'Receita informada pelo usuário';
-  }
+  $('#linha-tempo').innerHTML = r.linhaTempo.map((t) => `<li>${t}</li>`).join('');
+  $('#dicas').innerHTML = r.dicas.map((d) => `<li>${d}</li>`).join('');
+  $('#fontes').innerHTML = r.fontes
+    .map((f) => `<li><a href="${f.url}" target="_blank" rel="noopener">${f.nome}</a></li>`)
+    .join('');
 
   sincronizarEntradas();
   atualizar();
@@ -230,65 +252,136 @@ function sincronizarHidratacao() {
   const alterada = Math.abs(hidratacaoDe(r) - r.hidratacao) > 1e-9;
   $('#bt-restaurar').hidden = !alterada;
   $('#card-hid').classList.toggle('alterada', alterada);
+  const pf = r.prefermento;
+  $('#hid-nota').textContent = pf
+    ? `A água do ${pf.nome.toLowerCase()} é fixa (${pct(pf.agua)} da farinha dele); mudar a hidratação altera só a água da massa final.`
+    : '';
+}
+
+// Linhas da tabela de ingredientes de cada etapa
+function ingredientesDaFase(r, c, tipo) {
+  const fermentoExtra = r.tipoFermento === 'seco'
+    ? `≈ ${gramas(c.fermento * 3, 2)} se usar fresco`
+    : `≈ ${gramas(c.fermento / 3, 2)} se usar seco`;
+  const fermento = { nome: 'Fermento ' + r.tipoFermento, g: gramas(c.fermento, 2), extra: fermentoExtra };
+  const azeite = { nome: 'Azeite', nota: pct(r.azeite), g: gramas(c.azeite, 1), extra: `≈ ${fmt0.format(c.azeite * ML_POR_G_AZEITE)} ml` };
+  const sal = { nome: 'Sal', nota: pct(r.sal), g: gramas(c.sal, 1) };
+  const acucar = r.acucar ? [{ nome: 'Açúcar', nota: pct(r.acucar), g: gramas(c.acucar, 1) }] : [];
+  const pf = r.prefermento;
+
+  if (tipo === 'prefermento') {
+    return [
+      { nome: 'Farinha', nota: `${pct(pf.farinha)} do total`, g: gramas(c.pfFarinha, 0) },
+      { nome: 'Água', nota: `${pct(pf.agua)} da farinha`, g: gramas(c.pfAgua, 0) },
+      { ...fermento, nota: `${pct(pf.fermento)} da farinha` },
+    ];
+  }
+  if (tipo === 'final') {
+    return [
+      { nome: pf.rotulo, nota: 'da etapa 1', g: gramas(c.pfPeso, 0) },
+      { nome: 'Farinha', nota: 'restante', g: gramas(c.finFarinha, 0) },
+      { nome: 'Água', nota: 'restante', g: gramas(c.finAgua, 0), agua: true },
+      sal,
+      azeite,
+      ...acucar,
+    ];
+  }
+  return [
+    { nome: 'Farinha', nota: '100%', g: gramas(c.farinha, 0) },
+    { nome: 'Água', nota: pct(c.hidratacao), g: gramas(c.agua, 0), agua: true },
+    sal,
+    { ...fermento, nota: pct(r.fermento) },
+    azeite,
+    ...acucar,
+  ];
+}
+
+function tabelaIngredientes(linhas) {
+  const corpo = linhas.map((l) => `
+    <tr${l.agua ? ' class="linha-agua"' : ''}>
+      <th scope="row">${l.nome}${l.extra ? `<small>${l.extra}</small>` : ''}</th>
+      <td class="pct">${l.nota}</td>
+      <td class="g">${l.g}</td>
+    </tr>`).join('');
+  return `<table class="tabela">
+    <thead><tr><th scope="col">Ingrediente</th><th scope="col" class="pct">Proporção</th><th scope="col" class="g">Quantidade</th></tr></thead>
+    <tbody>${corpo}</tbody>
+  </table>`;
+}
+
+// Valores que entram no texto do modo de preparo
+function valoresDoTexto(r, c) {
+  const v = {
+    farinha: gramas(c.farinha, 0),
+    agua: gramas(c.agua, 0),
+    sal: gramas(c.sal, 1),
+    fermento: gramas(c.fermento, 2),
+    azeite: gramas(c.azeite, 1),
+    azeiteMl: fmt0.format(c.azeite * ML_POR_G_AZEITE) + ' ml',
+    agua90: gramas(c.agua * 0.9, 0),
+    aguaResto: gramas(c.agua - Math.round(c.agua * 0.9), 0),
+    bolas: String(estado.modo === 'bolas' ? estado.bolas : c.bolasInteiras),
+    pesoBola: gramas(estado.pesoBola, 0),
+  };
+  if (r.prefermento) {
+    const parte = Math.round(c.finAgua * 2 / 3);
+    Object.assign(v, {
+      pfFarinha: gramas(c.pfFarinha, 0),
+      pfAgua: gramas(c.pfAgua, 0),
+      finFarinha: gramas(c.finFarinha, 0),
+      finAgua: gramas(c.finAgua, 0),
+      finAgua23: gramas(parte, 0),
+      finAguaResto: gramas(c.finAgua - parte, 0),
+    });
+  }
+  return v;
+}
+
+function preencher(texto, v) {
+  return texto.replace(/\{(\w+)\}/g, (m, k) => (k in v ? `<strong>${v[k]}</strong>` : m));
+}
+
+function renderFases(r, c) {
+  const v = valoresDoTexto(r, c);
+  $('#fases').innerHTML = r.fases.map((fase) => `
+    <section class="card fase">
+      <header class="fase-topo">
+        <h3>${fase.titulo}</h3>
+        ${fase.quando ? `<span class="quando">${fase.quando}</span>` : ''}
+      </header>
+      ${tabelaIngredientes(ingredientesDaFase(r, c, fase.ingredientes))}
+      <h4 class="modo-titulo">Modo de fazer</h4>
+      <ol class="passos">
+        ${fase.passos.map((p) => `
+          <li class="passo">
+            <div class="passo-icone">${icone(p.icone)}</div>
+            <div class="passo-corpo">
+              <div class="passo-topo">
+                <strong>${p.titulo}</strong>
+                ${p.tempo ? `<span class="tempo">${p.tempo}</span>` : ''}
+              </div>
+              <p>${preencher(p.texto, v)}</p>
+              ${p.foto ? figura(p.foto, 'foto-passo') : ''}
+            </div>
+          </li>`).join('')}
+      </ol>
+    </section>`).join('');
 }
 
 function atualizar() {
   const r = receitaAtual();
   const c = calcular(r);
 
-  const linhas = [
-    { nome: 'Farinha', pct: 1, g: gramas(c.farinha, 0), fixo: true },
-    { nome: 'Água', pct: c.hidratacao, g: gramas(c.agua, 0), ajustavel: true },
-    { nome: 'Sal', pct: r.sal, g: gramas(c.sal, 1), fixo: true },
-    {
-      nome: 'Fermento ' + r.tipoFermento,
-      pct: r.fermento,
-      g: gramas(c.fermento, 2),
-      fixo: true,
-      extra: r.tipoFermento === 'seco'
-        ? `≈ ${gramas(c.fermento * 3, 2)} se usar fresco`
-        : `≈ ${gramas(c.fermento / 3, 2)} se usar seco`,
-    },
-    { nome: 'Azeite', pct: r.azeite, g: gramas(c.azeite, 1), fixo: true, extra: `≈ ${fmt0.format(c.azeite * ML_POR_G_AZEITE)} ml` },
-  ];
-  if (r.acucar) linhas.push({ nome: 'Açúcar', pct: r.acucar, g: gramas(c.acucar, 1), fixo: true });
-
-  const corpo = $('#tabela-ingredientes tbody');
-  corpo.innerHTML = '';
-  for (const l of linhas) {
-    const tr = document.createElement('tr');
-    if (l.ajustavel) tr.className = 'linha-agua';
-    tr.innerHTML = `
-      <th scope="row">${l.nome}${l.extra ? `<small>${l.extra}</small>` : ''}</th>
-      <td class="pct">${l.fixo ? '<span class="cadeado" aria-label="fixo" title="Percentual fixo">🔒</span>' : ''}${pct(l.pct)}</td>
-      <td class="g">${l.g}</td>`;
-    corpo.appendChild(tr);
-  }
-
   $('#total').textContent = gramas(c.total, 0);
   const peso = estado.pesoBola > 0 ? estado.pesoBola : 250;
   let bolasTexto = `${c.bolasInteiras} × ${fmt0.format(peso)} g`;
   if (estado.modo !== 'bolas' && c.sobra >= 1) bolasTexto += ` (sobra ${gramas(c.sobra, 0)})`;
   $('#bolas-resultado').textContent = bolasTexto;
+  $('#farinha-total').textContent = gramas(c.farinha, 0);
+  $('#agua-total').textContent = gramas(c.agua, 0);
+  $('#aviso-fermento').hidden = !(c.fermento > 0 && c.fermento < 1);
 
-  const aviso = $('#aviso-fermento');
-  aviso.hidden = !(c.fermento > 0 && c.fermento < 1);
-
-  const cardBiga = $('#card-biga');
-  cardBiga.hidden = !c.biga;
-  if (c.biga) {
-    $('#biga-farinha').textContent = gramas(c.biga.farinha, 0);
-    $('#biga-agua').textContent = gramas(c.biga.agua, 0);
-    $('#biga-fermento').textContent = gramas(c.biga.fermento, 2);
-    $('#biga-peso').textContent = gramas(c.biga.peso, 0);
-    $('#final-farinha').textContent = gramas(c.biga.farinhaFinal, 0);
-    $('#final-agua').textContent = gramas(c.biga.aguaFinal, 0);
-    $('#final-sal').textContent = gramas(c.sal, 1);
-    $('#final-azeite').textContent = gramas(c.azeite, 1);
-    $('#biga-pct-farinha').textContent = pct(r.biga.farinha);
-    $('#biga-pct-agua').textContent = pct(r.biga.agua);
-  }
-
+  renderFases(r, c);
   salvarEstado();
 }
 
@@ -396,7 +489,7 @@ function configurarTelaAcesa() {
 
 montarAbas();
 ligarEventos();
-if (!location.hash) history.replaceState(null, '', '#' + estado.receitaId);
+if (!location.hash) history.replaceState(null, '', '#' + receitaAtual().id);
 rota();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

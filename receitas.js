@@ -4,6 +4,7 @@
 // Nos textos do modo de preparo, {chave} é trocado pela quantidade calculada:
 //   {farinha} {agua} {sal} {fermento} {azeite} {azeiteMl} {agua90} {aguaResto}
 //   {pfFarinha} {pfAgua} {finFarinha} {finAgua} {finAgua23} {finAguaResto} {bolas} {pesoBola}
+//   {listaPesagem} (todos os ingredientes da receita com o peso calculado)
 // e pelo fermento escolhido no app: {fermentoNome} ("fermento fresco"/"fermento seco instantâneo")
 // e {fermentoDissolver} (frase pronta de como dissolver {fermento} em {agua90}).
 //
@@ -120,7 +121,7 @@ const RECEITAS = [
           {
             icone: 'balanca',
             titulo: 'Pese e prepare',
-            texto: 'Proporção AVPN por litro de água: 1,6–1,8 kg de farinha 00 ou 0, 40–60 g de sal marinho e 0,1–3 g de fermento fresco. Aqui usamos o meio da faixa: 1,7 kg de farinha, 50 g de sal e 1,7 g de fermento por litro. Use água a ~20 °C. Não leva azeite nem açúcar.',
+            texto: 'Pese {listaPesagem}. Use água a ~20 °C. A massa AVPN não leva azeite nem açúcar.',
           },
           {
             icone: 'tigela',
@@ -160,7 +161,8 @@ const RECEITAS = [
       },
     ],
     dicas: [
-      'A AVPN admite de 0,1 a 3 g de fermento fresco por litro de água (mais fermento para menos horas). O app usa 1,7 g por litro, que funciona bem para ~12 h a 20–22 °C; em casa mais fria, a fermentação se aproxima das 24 h.',
+      'Proporção oficial AVPN, por litro de água: 1,6–1,8 kg de farinha 00 ou 0, 40–60 g de sal marinho e 0,1–3 g de fermento fresco. O app usa o meio da faixa (1,7 kg de farinha, 50 g de sal e 1,7 g de fermento por litro) e calcula as quantidades para a massa que você escolheu.',
+      'Mais fermento (dentro da faixa AVPN) = menos horas. A dose do app funciona bem para ~12 h a 20–22 °C; em casa mais fria, a fermentação se aproxima das 24 h.',
       'O azeite não faz parte da massa AVPN: ele só vai por cima da pizza montada.',
     ],
     fontes: [
@@ -379,7 +381,7 @@ const RECEITAS = [
           {
             icone: 'balanca',
             titulo: 'Pese e prepare',
-            texto: 'Pese tudo antes de começar. Use água em temperatura ambiente (20–22 °C); em dia quente (acima de 26 °C), use água gelada para a massa não fermentar rápido demais. Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
+            texto: 'Pese {listaPesagem}. Use água em temperatura ambiente (20–22 °C); em dia quente (acima de 26 °C), use água gelada para a massa não fermentar rápido demais. Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
           },
           ...misturaDireta(),
           SOVAR,
@@ -435,7 +437,7 @@ const RECEITAS = [
           {
             icone: 'balanca',
             titulo: 'Pese e prepare',
-            texto: 'Pese tudo antes de começar — com tão pouco fermento ({fermento}), use balança de precisão. Use água fresca (18–20 °C). Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
+            texto: 'Pese {listaPesagem} — com tão pouco fermento, use balança de precisão. Use água fresca (18–20 °C). Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
           },
           ...misturaDireta(),
           SOVAR,
@@ -491,7 +493,7 @@ const RECEITAS = [
           {
             icone: 'balanca',
             titulo: 'Pese e prepare',
-            texto: 'Pese tudo antes de começar. Use água gelada (5–8 °C, da geladeira) para a massa terminar a ~22 °C e entrar fria na geladeira. Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
+            texto: 'Pese {listaPesagem}. Use água gelada (5–8 °C, da geladeira) para a massa terminar a ~22 °C e entrar fria na geladeira. Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
           },
           ...misturaDireta(),
           SOVAR,
@@ -552,7 +554,7 @@ const RECEITAS = [
           {
             icone: 'balanca',
             titulo: 'Pese e prepare',
-            texto: 'Pese tudo antes de começar — com tão pouco fermento ({fermento}), use balança de precisão. Use água gelada (5–8 °C). Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
+            texto: 'Pese {listaPesagem} — com tão pouco fermento, use balança de precisão. Use água gelada (5–8 °C). Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
           },
           ...misturaDireta(),
           {

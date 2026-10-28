@@ -470,6 +470,16 @@ function valoresDoTexto(r, c) {
     });
   }
   for (const k in v) v[k] = forte(v[k]);
+  // Lista do que pesar: "X de farinha, Y de água, ... e Z de azeite"
+  const itens = [
+    `${v.farinha} de farinha`,
+    `${v.agua} de água`,
+    `${v.sal} de sal`,
+    `${v.fermento} de ${nomeFermento(estado.fermentoTipo)}`,
+  ];
+  if (r.azeite) itens.push(`${v.azeite} de azeite`);
+  if (r.acucar) itens.push(`${forte(gramas(c.acucar, 1))} de açúcar`);
+  v.listaPesagem = itens.slice(0, -1).join(', ') + ' e ' + itens[itens.length - 1];
   // Trechos de texto (já formatados) que dependem do fermento escolhido
   v.fermentoNome = nomeFermento(estado.fermentoTipo);
   v.fermentoDissolver = estado.fermentoTipo === 'seco'

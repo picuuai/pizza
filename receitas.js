@@ -437,7 +437,7 @@ const RECEITAS = [
           {
             icone: 'balanca',
             titulo: 'Pese e prepare',
-            texto: 'Pese {listaPesagem} — com tão pouco fermento, use balança de precisão. Use água fresca (18–20 °C). Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
+            texto: 'Pese {listaPesagem}. Use água fresca (18–20 °C). Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
           },
           ...misturaDireta(),
           SOVAR,
@@ -554,7 +554,7 @@ const RECEITAS = [
           {
             icone: 'balanca',
             titulo: 'Pese e prepare',
-            texto: 'Pese {listaPesagem} — com tão pouco fermento, use balança de precisão. Use água gelada (5–8 °C). Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
+            texto: 'Pese {listaPesagem}. Use água gelada (5–8 °C). Separe {agua90} de água para o fermento e {aguaResto} para o sal.',
           },
           ...misturaDireta(),
           {

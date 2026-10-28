@@ -93,12 +93,16 @@ function calcular(receita) {
     farinha,
     agua: farinha * h,
     sal: farinha * receita.sal,
-    fermento: farinha * fermento,
+    fermentoExato: farinha * fermento,
     azeite: farinha * receita.azeite,
     acucar: farinha * receita.acucar,
     total: farinha * soma,
   };
-  r.fermentoOutro = estado.fermentoTipo === 'seco' ? r.fermento * FRESCO_POR_SECO : r.fermento / FRESCO_POR_SECO;
+  // Dose para pesar: arredondada para 1; 1,5; 2 g… (a balança de casa não pesa menos que isso)
+  r.fermento = arredondarFermento(r.fermentoExato);
+  r.fermentoOutro = arredondarFermento(
+    estado.fermentoTipo === 'seco' ? r.fermentoExato * FRESCO_POR_SECO : r.fermentoExato / FRESCO_POR_SECO
+  );
 
   // Pré-fermento (biga/poolish): sua água é fixa; a hidratação escolhida só muda a água da massa final
   const pf = receita.prefermento;
@@ -119,10 +123,20 @@ const fmt0 = nf(0, 0);
 const fmt1 = nf(1, 1);
 const fmt2 = nf(2, 2);
 const fmtPct = nf(0, 3);
+const fmt1Opcional = nf(0, 1);
 
 function gramas(valor, casas) {
   const f = casas === 2 ? fmt2 : casas === 1 ? fmt1 : fmt0;
   return f.format(valor) + ' g';
+}
+
+// Fermento em passos de 0,5 g, nunca menos que 1 g
+function arredondarFermento(g) {
+  return g > 0 ? Math.max(1, Math.round(g * 2) / 2) : 0;
+}
+
+function gramasFermento(valor) {
+  return fmt1Opcional.format(valor) + ' g';
 }
 
 function pct(fracao) {
@@ -362,8 +376,8 @@ function renderCompat(r, c) {
 
   const outro = estado.fermentoTipo === 'seco' ? 'fresco' : 'seco instantâneo';
   $('#dose-fermento').innerHTML =
-    `Nesta receita: <strong>${gramas(c.fermento, 2)}</strong> de ${nomeFermento(estado.fermentoTipo)} ` +
-    `(equivale a ${gramas(c.fermentoOutro, 2)} de ${outro}).`;
+    `Nesta receita: <strong>${gramasFermento(c.fermento)}</strong> de ${nomeFermento(estado.fermentoTipo)} ` +
+    `(se usar ${outro}: ${gramasFermento(c.fermentoOutro)}).`;
 }
 
 // Linhas da tabela de ingredientes de cada etapa
@@ -371,8 +385,8 @@ function ingredientesDaFase(r, c, tipo) {
   const outro = estado.fermentoTipo === 'seco' ? 'fresco' : 'seco';
   const fermento = {
     nome: 'Fermento ' + (estado.fermentoTipo === 'seco' ? 'seco' : 'fresco'),
-    g: gramas(c.fermento, 2),
-    extra: `≈ ${gramas(c.fermentoOutro, 2)} se usar ${outro}`,
+    g: gramasFermento(c.fermento),
+    extra: `≈ ${gramasFermento(c.fermentoOutro)} se usar ${outro}`,
   };
   const azeite = r.azeite
     ? [{ nome: 'Azeite', nota: pct(r.azeite), g: gramas(c.azeite, 1), extra: `≈ ${fmt0.format(c.azeite * ML_POR_G_AZEITE)} ml` }]
@@ -385,7 +399,7 @@ function ingredientesDaFase(r, c, tipo) {
     return [
       { nome: 'Farinha', nota: `${pct(pf.farinha)} do total`, g: gramas(c.pfFarinha, 0) },
       { nome: 'Água', nota: `${pct(pf.agua)} da farinha`, g: gramas(c.pfAgua, 0) },
-      { ...fermento, nota: `${pct(c.fermento / c.pfFarinha || 0)} da farinha` },
+      { ...fermento, nota: `${pct(c.fermentoExato / c.pfFarinha || 0)} da farinha` },
     ];
   }
   if (tipo === 'final') {
@@ -424,7 +438,7 @@ function tabelaIngredientes(linhas) {
 // Valores que entram no texto do modo de preparo
 function valoresDoTexto(r, c) {
   const forte = (t) => `<strong>${t}</strong>`;
-  const fermento = gramas(c.fermento, 2);
+  const fermento = gramasFermento(c.fermento);
   const agua90 = gramas(c.agua * 0.9, 0);
   const v = {
     farinha: gramas(c.farinha, 0),
@@ -511,7 +525,17 @@ function atualizar() {
   $('#bolas-resultado').textContent = `${estado.bolas} × ${fmt0.format(estado.pesoBola)} g`;
   $('#farinha-total').textContent = gramas(c.farinha, 0);
   $('#agua-total').textContent = gramas(c.agua, 0);
-  $('#aviso-fermento').hidden = !(c.fermento > 0 && c.fermento < 1);
+  // Arredondar doses muito pequenas aumenta bastante o fermento: avisa e ensina a dose exata
+  const fator = c.fermentoExato > 0 ? c.fermento / c.fermentoExato : 1;
+  const aviso = $('#aviso-fermento');
+  aviso.hidden = fator < 1.25;
+  if (!aviso.hidden) {
+    const solucao = gramas(c.fermentoExato * 100, 0);
+    aviso.innerHTML =
+      `Fermento arredondado de ${fmt2.format(c.fermentoExato)} g para <strong>${gramasFermento(c.fermento)}</strong> ` +
+      `(${fmt1.format(fator)}× mais): a massa vai fermentar mais rápido — confira as bolas pelo teste do dedo e encurte o tempo se preciso. ` +
+      `<br>Para a dose exata: dissolva 1 g de fermento em 100 g de água, use <strong>${solucao}</strong> dessa mistura no lugar do fermento e tire ${solucao} da água da receita.`;
+  }
 
   renderFases(r, c);
   salvarEstado();

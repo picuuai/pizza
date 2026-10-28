@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Massa de Pizza</title>
+  <meta name="description" content="Calculadora de massa de pizza napolitana: escolha a receita, a quantidade e a hidratação.">
+  <meta name="theme-color" content="#c8371d" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1512" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Massa Pizza">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">
+      <img src="icons/icon-192.png" alt="" width="32" height="32">
+      <h1>Massa de Pizza</h1>
+    </div>
+    <button id="bt-tela" class="bt-icone" type="button" hidden aria-pressed="false" title="Manter tela acesa">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2Zm-3 18h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1Z"/></svg>
+      <span class="sr">Manter tela acesa</span>
+    </button>
+  </header>
+
+  <nav id="abas" class="abas" aria-label="Receitas"></nav>
+
+  <main id="tela-receita" class="conteudo">
+    <section class="cabecalho">
+      <h2 id="nome"></h2>
+      <p id="prazo" class="prazo"></p>
+      <p class="tags"><span id="metodo" class="tag"></span> <span id="tipo-fermento" class="tag"></span></p>
+    </section>
+
+    <section class="card" aria-labelledby="t-quantidade">
+      <h3 id="t-quantidade">Quanto de massa?</h3>
+      <div class="segmentos" role="group" aria-label="Como informar a quantidade">
+        <button type="button" data-modo="bolas">Nº de bolas</button>
+        <button type="button" data-modo="massa">Massa total</button>
+        <button type="button" data-modo="farinha">Farinha</button>
+      </div>
+
+      <div data-painel="bolas" class="painel painel-bolas">
+        <label class="campo">
+          <span>Bolas</span>
+          <div class="stepper">
+            <button type="button" data-passo="bolas:-1" aria-label="Menos uma bola">−</button>
+            <input id="in-bolas" type="number" inputmode="numeric" min="1" step="1">
+            <button type="button" data-passo="bolas:1" aria-label="Mais uma bola">+</button>
+          </div>
+        </label>
+        <span class="vezes" aria-hidden="true">×</span>
+        <label class="campo">
+          <span>Peso de cada bola</span>
+          <div class="stepper">
+            <button type="button" data-passo="pesoBola:-10" aria-label="Menos 10 gramas">−</button>
+            <input id="in-peso" type="number" inputmode="decimal" min="1" step="1">
+            <button type="button" data-passo="pesoBola:10" aria-label="Mais 10 gramas">+</button>
+          </div>
+          <em class="unidade">gramas</em>
+        </label>
+      </div>
+
+      <div data-painel="massa" class="painel" hidden>
+        <label class="campo">
+          <span>Massa total desejada</span>
+          <div class="stepper">
+            <button type="button" data-passo="massa:-100" aria-label="Menos 100 gramas">−</button>
+            <input id="in-massa" type="number" inputmode="decimal" min="0" step="1">
+            <button type="button" data-passo="massa:100" aria-label="Mais 100 gramas">+</button>
+          </div>
+          <em class="unidade">gramas</em>
+        </label>
+      </div>
+
+      <div data-painel="farinha" class="painel" hidden>
+        <label class="campo">
+          <span>Farinha total</span>
+          <div class="stepper">
+            <button type="button" data-passo="farinha:-100" aria-label="Menos 100 gramas">−</button>
+            <input id="in-farinha" type="number" inputmode="decimal" min="0" step="1">
+            <button type="button" data-passo="farinha:100" aria-label="Mais 100 gramas">+</button>
+          </div>
+          <em class="unidade">gramas</em>
+        </label>
+      </div>
+    </section>
+
+    <section id="card-hid" class="card card-hid" aria-labelledby="t-hid">
+      <div class="linha-titulo">
+        <h3 id="t-hid">Hidratação</h3>
+        <button id="bt-restaurar" type="button" class="link" hidden>Voltar ao padrão</button>
+      </div>
+      <div class="hid-controle">
+        <button id="hid-menos" type="button" class="bt-redondo" aria-label="Diminuir 0,5%">−</button>
+        <label class="hid-valor">
+          <input id="in-hid" type="text" inputmode="decimal" aria-label="Hidratação em porcentagem">
+          <span>%</span>
+        </label>
+        <button id="hid-mais" type="button" class="bt-redondo" aria-label="Aumentar 0,5%">+</button>
+      </div>
+      <input id="slider-hid" type="range" min="50" max="85" step="0.5" aria-label="Hidratação">
+      <p class="dica">Padrão da receita: <strong id="hid-padrao"></strong> · os outros percentuais são fixos.</p>
+    </section>
+
+    <section class="card" aria-labelledby="t-ingredientes">
+      <h3 id="t-ingredientes">Ingredientes</h3>
+      <table id="tabela-ingredientes" class="tabela">
+        <thead><tr><th scope="col">Ingrediente</th><th scope="col" class="pct">%</th><th scope="col" class="g">Quantidade</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="totais">
+        <div><span>Massa total</span><strong id="total"></strong></div>
+        <div><span>Bolas</span><strong id="bolas-resultado"></strong></div>
+      </div>
+      <p id="aviso-fermento" class="aviso" hidden>Menos de 1 g de fermento: use uma balança de precisão (0,01 g).</p>
+    </section>
+
+    <section id="card-biga" class="card" aria-labelledby="t-biga" hidden>
+      <h3 id="t-biga">Etapas da biga</h3>
+      <h4>1. Biga <small>(<span id="biga-pct-farinha"></span> da farinha, <span id="biga-pct-agua"></span> de água)</small></h4>
+      <dl class="lista">
+        <div><dt>Farinha</dt><dd id="biga-farinha"></dd></div>
+        <div><dt>Água</dt><dd id="biga-agua"></dd></div>
+        <div><dt>Fermento seco (todo)</dt><dd id="biga-fermento"></dd></div>
+        <div class="soma"><dt>Peso da biga</dt><dd id="biga-peso"></dd></div>
+      </dl>
+      <h4>2. Massa final <small>(biga + o restante)</small></h4>
+      <dl class="lista">
+        <div><dt>Farinha</dt><dd id="final-farinha"></dd></div>
+        <div><dt>Água</dt><dd id="final-agua"></dd></div>
+        <div><dt>Sal</dt><dd id="final-sal"></dd></div>
+        <div><dt>Azeite</dt><dd id="final-azeite"></dd></div>
+      </dl>
+    </section>
+
+    <section class="card info" aria-labelledby="t-info">
+      <h3 id="t-info">Sobre a receita</h3>
+      <dl>
+        <dt>Origem</dt><dd id="info-origem"></dd>
+        <dt>Observação</dt><dd id="info-obs"></dd>
+        <dt>Fonte</dt><dd id="info-fonte"></dd>
+      </dl>
+      <p class="dica">Azeite fixo em 3% (adaptação por preferência). Fermentação depende de temperatura, farinha e tempo.</p>
+    </section>
+  </main>
+
+  <main id="tela-comparativo" class="conteudo" hidden>
+    <section class="cabecalho">
+      <h2>Comparativo</h2>
+      <p class="prazo">Percentuais sobre o peso da farinha. Toque numa receita para abrir.</p>
+    </section>
+    <section class="card">
+      <div class="rolagem">
+        <table id="tabela-comparativo" class="tabela comparativo">
+          <thead><tr><th scope="col">Receita</th><th scope="col">Hidrat.</th><th scope="col">Sal</th><th scope="col">Fermento</th><th scope="col">Azeite</th><th scope="col">Açúcar</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="dica">* hidratação alterada por você. Fermento fresco e seco não têm o mesmo peso: seco ≈ fresco ÷ 3.</p>
+    </section>
+  </main>
+
+  <script src="receitas.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

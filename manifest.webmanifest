@@ -1,0 +1,17 @@
+{
+  "name": "Massa de Pizza — Calculadora",
+  "short_name": "Massa Pizza",
+  "description": "Calculadora de massa de pizza napolitana com hidratação ajustável.",
+  "lang": "pt-BR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8f3ec",
+  "theme_color": "#c8371d",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

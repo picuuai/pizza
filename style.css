@@ -1,0 +1,229 @@
+:root {
+  --bg: #f8f3ec;
+  --surface: #ffffff;
+  --surface-2: #f3ece3;
+  --ink: #2a1f1a;
+  --muted: #76675c;
+  --line: #e8ddd0;
+  --accent: #c8371d;
+  --accent-ink: #ffffff;
+  --accent-soft: #fbe5de;
+  --basil: #2f7a45;
+  --basil-soft: #e1f0e5;
+  --amber: #a5650a;
+  --amber-soft: #fbefd9;
+  --shadow: 0 1px 2px rgb(60 30 10 / 0.06), 0 4px 16px rgb(60 30 10 / 0.05);
+  --radius: 16px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17120f;
+    --surface: #221b17;
+    --surface-2: #2c231e;
+    --ink: #f3ebe3;
+    --muted: #a8998d;
+    --line: #3a2f29;
+    --accent: #ff6b4d;
+    --accent-ink: #1c0f0a;
+    --accent-soft: #3d2019;
+    --basil: #7fcf95;
+    --basil-soft: #1d3324;
+    --amber: #f0b45a;
+    --amber-soft: #382915;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--accent); }
+
+.sr {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ---------- Topo e abas ---------- */
+
+.topo {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 6px;
+}
+.marca { display: flex; align-items: center; gap: 10px; }
+.marca img { border-radius: 8px; }
+.marca h1 { font-size: 1.15rem; margin: 0; letter-spacing: -0.01em; }
+
+.bt-icone {
+  display: grid; place-items: center;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+}
+.bt-icone.ativo { background: var(--amber-soft); color: var(--amber); border-color: transparent; }
+
+.abas {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; gap: 8px; overflow-x: auto;
+  padding: 8px 16px 10px;
+  background: var(--bg);
+  scrollbar-width: none;
+  scroll-padding-inline: 16px;
+}
+.abas::-webkit-scrollbar { display: none; }
+.aba {
+  flex: none; padding: 8px 14px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--ink); text-decoration: none; font-size: 0.92rem; white-space: nowrap;
+}
+.aba.ativa { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.aba-comparativo { border-style: dashed; }
+
+/* ---------- Conteúdo ---------- */
+
+.conteudo {
+  max-width: 640px; margin: 0 auto;
+  padding: 4px 16px 32px;
+  display: grid; gap: 14px;
+}
+
+.cabecalho h2 { margin: 6px 0 2px; font-size: 1.6rem; letter-spacing: -0.02em; }
+.prazo { margin: 0; color: var(--muted); }
+.tags { margin: 8px 0 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.tag {
+  display: inline-block; padding: 2px 10px; border-radius: 999px;
+  background: var(--surface-2); color: var(--muted); font-size: 0.8rem;
+}
+.tag-fresco { background: var(--basil-soft); color: var(--basil); }
+.tag-seco { background: var(--amber-soft); color: var(--amber); }
+
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow);
+  min-width: 0;
+}
+.card h3 { margin: 0 0 12px; font-size: 1rem; }
+.card h4 { margin: 14px 0 6px; font-size: 0.95rem; }
+.card h4 small { color: var(--muted); font-weight: 400; }
+
+.dica { margin: 10px 0 0; color: var(--muted); font-size: 0.85rem; }
+.aviso {
+  margin: 12px 0 0; padding: 8px 12px; border-radius: 10px;
+  background: var(--amber-soft); color: var(--amber); font-size: 0.85rem;
+}
+
+/* ---------- Quantidade ---------- */
+
+.segmentos {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+  padding: 4px; border-radius: 12px; background: var(--surface-2);
+  margin-bottom: 14px;
+}
+.segmentos button {
+  border: 0; background: transparent; border-radius: 9px; padding: 8px 4px;
+  font-size: 0.9rem; color: var(--muted);
+}
+.segmentos button.ativo { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: var(--shadow); }
+
+.painel-bolas { display: flex; align-items: flex-start; gap: 8px; }
+.painel-bolas .campo { flex: 1; min-width: 0; }
+.vezes { padding-top: 34px; color: var(--muted); }
+
+.campo { display: grid; gap: 6px; }
+.campo > span { font-size: 0.85rem; color: var(--muted); }
+.unidade { font-style: normal; font-size: 0.78rem; color: var(--muted); text-align: center; }
+
+.stepper {
+  display: flex; align-items: stretch;
+  border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+  background: var(--surface);
+}
+.stepper button {
+  flex: none; width: 42px; border: 0; background: var(--surface-2);
+  font-size: 1.25rem; color: var(--ink);
+}
+.stepper input {
+  flex: 1; min-width: 0; width: 100%; border: 0; background: transparent;
+  text-align: center; font-size: 1.25rem; font-weight: 600; padding: 8px 0;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.stepper input::-webkit-outer-spin-button,
+.stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper:focus-within { border-color: var(--accent); }
+.stepper input:focus { outline: none; }
+
+/* ---------- Hidratação ---------- */
+
+.linha-titulo { display: flex; justify-content: space-between; align-items: baseline; }
+.link { border: 0; background: none; color: var(--accent); padding: 0; font-size: 0.88rem; text-decoration: underline; }
+
+.hid-controle { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.bt-redondo {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface-2); font-size: 1.5rem;
+}
+.hid-valor { display: flex; align-items: baseline; color: var(--accent); }
+.hid-valor input {
+  width: 4.2ch; border: 0; background: transparent; text-align: right;
+  font-size: 2.6rem; font-weight: 700; color: var(--accent); padding: 0;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+}
+.hid-valor input:focus { outline: 2px solid var(--accent-soft); border-radius: 8px; }
+.hid-valor span { font-size: 1.5rem; font-weight: 600; margin-left: 2px; }
+
+#slider-hid { width: 100%; margin: 14px 0 0; accent-color: var(--accent); height: 28px; }
+
+.card-hid.alterada { border-color: var(--accent); }
+
+/* ---------- Tabelas ---------- */
+
+.tabela { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tabela th, .tabela td { padding: 10px 4px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.tabela thead th { font-size: 0.75rem; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; padding-top: 0; }
+.tabela tbody th { font-weight: 500; }
+.tabela tbody th small { display: block; color: var(--muted); font-weight: 400; font-size: 0.8rem; }
+.tabela .pct { text-align: right; color: var(--muted); white-space: nowrap; }
+.tabela .g { text-align: right; white-space: nowrap; }
+.tabela tbody .g { font-weight: 700; font-size: 1.1rem; }
+.cadeado { font-size: 0.7rem; margin-right: 4px; opacity: 0.6; }
+.linha-agua .pct { color: var(--accent); font-weight: 600; }
+.linha-agua .g { color: var(--accent); }
+
+.totais {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px;
+}
+.totais div { background: var(--surface-2); border-radius: 12px; padding: 10px 12px; }
+.totais span { display: block; font-size: 0.8rem; color: var(--muted); }
+.totais strong { font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+
+.lista { margin: 0; }
+.lista div { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.lista dt { color: var(--ink); }
+.lista dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lista .soma { border-bottom: 0; }
+.lista .soma dt, .lista .soma dd { color: var(--muted); }
+
+.info dl { margin: 0; display: grid; gap: 2px; }
+.info dt { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 8px; }
+.info dd { margin: 0; overflow-wrap: anywhere; }
+
+.rolagem { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+.comparativo { min-width: 520px; font-size: 0.9rem; }
+.comparativo td { white-space: nowrap; }
+.comparativo tbody th a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.comparativo .tag { font-size: 0.7rem; padding: 0 6px; }

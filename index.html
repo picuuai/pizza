@@ -72,13 +72,7 @@
 
     <section class="card" aria-labelledby="t-quantidade">
       <h3 id="t-quantidade">Quanto de massa?</h3>
-      <div class="segmentos" role="group" aria-label="Como informar a quantidade">
-        <button type="button" data-modo="bolas">Nº de bolas</button>
-        <button type="button" data-modo="massa">Massa total</button>
-        <button type="button" data-modo="farinha">Farinha</button>
-      </div>
-
-      <div data-painel="bolas" class="painel painel-bolas">
+      <div class="painel painel-bolas">
         <label class="campo">
           <span>Bolas</span>
           <div class="stepper">
@@ -99,29 +93,7 @@
         </label>
       </div>
 
-      <div data-painel="massa" class="painel" hidden>
-        <label class="campo">
-          <span>Massa total desejada</span>
-          <div class="stepper">
-            <button type="button" data-passo="massa:-100" aria-label="Menos 100 gramas">−</button>
-            <input id="in-massa" type="number" inputmode="decimal" min="0" step="1">
-            <button type="button" data-passo="massa:100" aria-label="Mais 100 gramas">+</button>
-          </div>
-          <em class="unidade">gramas</em>
-        </label>
-      </div>
-
-      <div data-painel="farinha" class="painel" hidden>
-        <label class="campo">
-          <span>Farinha total</span>
-          <div class="stepper">
-            <button type="button" data-passo="farinha:-100" aria-label="Menos 100 gramas">−</button>
-            <input id="in-farinha" type="number" inputmode="decimal" min="0" step="1">
-            <button type="button" data-passo="farinha:100" aria-label="Mais 100 gramas">+</button>
-          </div>
-          <em class="unidade">gramas</em>
-        </label>
-      </div>
+      <p class="dica">Disco de 30 cm: ~250 g (napolitana) ou ~320 g (pizza comum, mais encorpada).</p>
     </section>
 
     <section id="card-hid" class="card card-hid" aria-labelledby="t-hid">

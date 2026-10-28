@@ -10,11 +10,8 @@ const estado = carregarEstado();
 function carregarEstado() {
   const padrao = {
     receitaId: RECEITAS[0].id,
-    modo: 'bolas',
     bolas: 6,
     pesoBola: 250,
-    massa: 1500,
-    farinha: 1000,
     hidratacoes: {}, // hidratação escolhida por receita (fração)
     fermentoTipo: 'fresco', // 'fresco' | 'seco' (instantâneo)
     farinhaTipo: 'italiana',
@@ -88,11 +85,8 @@ function calcular(receita) {
   const fermento = fermentoDe(receita);
   const soma = 1 + h + receita.sal + fermento + receita.azeite + receita.acucar;
 
-  let farinha;
-  if (estado.modo === 'bolas') farinha = (estado.bolas * estado.pesoBola) / soma;
-  else if (estado.modo === 'massa') farinha = estado.massa / soma;
-  else farinha = estado.farinha;
-  farinha = Math.max(0, farinha || 0);
+  // Farinha calculada para chegar exatamente em bolas × peso
+  const farinha = Math.max(0, (estado.bolas * estado.pesoBola) / soma || 0);
 
   const r = {
     hidratacao: h,
@@ -105,10 +99,6 @@ function calcular(receita) {
     total: farinha * soma,
   };
   r.fermentoOutro = estado.fermentoTipo === 'seco' ? r.fermento * FRESCO_POR_SECO : r.fermento / FRESCO_POR_SECO;
-
-  const peso = estado.pesoBola > 0 ? estado.pesoBola : 250;
-  r.bolasInteiras = Math.floor(r.total / peso + 1e-9);
-  r.sobra = r.total - r.bolasInteiras * peso;
 
   // Pré-fermento (biga/poolish): sua água é fixa; a hidratação escolhida só muda a água da massa final
   const pf = receita.prefermento;
@@ -293,14 +283,6 @@ function mostrarReceita() {
 }
 
 function sincronizarEntradas() {
-  for (const b of document.querySelectorAll('[data-modo]')) {
-    const ativo = b.dataset.modo === estado.modo;
-    b.classList.toggle('ativo', ativo);
-    b.setAttribute('aria-pressed', ativo);
-  }
-  for (const p of document.querySelectorAll('[data-painel]')) {
-    p.hidden = p.dataset.painel !== estado.modo;
-  }
   for (const b of document.querySelectorAll('[data-fermento]')) {
     const ativo = b.dataset.fermento === estado.fermentoTipo;
     b.classList.toggle('ativo', ativo);
@@ -308,8 +290,6 @@ function sincronizarEntradas() {
   }
   $('#in-bolas').value = estado.bolas;
   $('#in-peso').value = estado.pesoBola;
-  $('#in-massa').value = estado.massa;
-  $('#in-farinha').value = estado.farinha;
   $('#sel-farinha').value = estado.farinhaTipo;
   $('#in-w').value = estado.farinhaW;
   const f = FARINHAS.find((x) => x.id === estado.farinhaTipo);
@@ -455,7 +435,7 @@ function valoresDoTexto(r, c) {
     azeiteMl: fmt0.format(c.azeite * ML_POR_G_AZEITE) + ' ml',
     agua90,
     aguaResto: gramas(c.agua - Math.round(c.agua * 0.9), 0),
-    bolas: String(estado.modo === 'bolas' ? estado.bolas : c.bolasInteiras),
+    bolas: String(estado.bolas),
     pesoBola: gramas(estado.pesoBola, 0),
   };
   if (r.prefermento) {
@@ -528,10 +508,7 @@ function atualizar() {
   marcarCompatMenu();
 
   $('#total').textContent = gramas(c.total, 0);
-  const peso = estado.pesoBola > 0 ? estado.pesoBola : 250;
-  let bolasTexto = `${c.bolasInteiras} × ${fmt0.format(peso)} g`;
-  if (estado.modo !== 'bolas' && c.sobra >= 1) bolasTexto += ` (sobra ${gramas(c.sobra, 0)})`;
-  $('#bolas-resultado').textContent = bolasTexto;
+  $('#bolas-resultado').textContent = `${estado.bolas} × ${fmt0.format(estado.pesoBola)} g`;
   $('#farinha-total').textContent = gramas(c.farinha, 0);
   $('#agua-total').textContent = gramas(c.agua, 0);
   $('#aviso-fermento').hidden = !(c.fermento > 0 && c.fermento < 1);
@@ -552,18 +529,6 @@ function definirHidratacao(percentual) {
 function ligarEventos() {
   window.addEventListener('hashchange', rota);
 
-  for (const b of document.querySelectorAll('[data-modo]')) {
-    b.addEventListener('click', () => {
-      // ao trocar de modo, mantém a mesma quantidade de massa já calculada
-      const c = calcular(receitaAtual());
-      estado.massa = Math.round(c.total);
-      estado.farinha = Math.round(c.farinha);
-      estado.modo = b.dataset.modo;
-      sincronizarEntradas();
-      atualizar();
-    });
-  }
-
   for (const b of document.querySelectorAll('[data-fermento]')) {
     b.addEventListener('click', () => {
       estado.fermentoTipo = b.dataset.fermento;
@@ -580,7 +545,7 @@ function ligarEventos() {
     atualizar();
   });
 
-  const MINIMOS = { bolas: 1, pesoBola: 1, massa: 0, farinha: 0, farinhaW: 100 };
+  const MINIMOS = { bolas: 1, pesoBola: 1, farinhaW: 100 };
   const numerico = (sel, chave) => {
     $(sel).addEventListener('input', (e) => {
       const n = e.target.valueAsNumber;
@@ -595,8 +560,6 @@ function ligarEventos() {
   };
   numerico('#in-bolas', 'bolas');
   numerico('#in-peso', 'pesoBola');
-  numerico('#in-massa', 'massa');
-  numerico('#in-farinha', 'farinha');
   numerico('#in-w', 'farinhaW');
 
   for (const b of document.querySelectorAll('[data-passo]')) {

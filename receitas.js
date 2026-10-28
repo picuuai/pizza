@@ -469,6 +469,7 @@ const RECEITAS = [
   },
   {
     id: '24h',
+    geladeira: true, // fermento trabalha devagar: arredondar para 1–2 g não pede aviso
     curto: '24 h geladeira',
     wMin: 260,
     wIdeal: [280, 320],
@@ -522,6 +523,7 @@ const RECEITAS = [
       },
     ],
     dicas: [
+      'Na geladeira o fermento trabalha devagar: em receitas caseiras de 24 a 72 h é comum usar de 1 a 2 g por massa (500 g a 1 kg de farinha). Por isso o app arredonda a dose para 1 g, 1,5 g, 2 g…',
       'Geladeiras variam muito: com termômetro, confira se a prateleira fica em 4–6 °C.',
     ],
     fontes: [
@@ -530,6 +532,7 @@ const RECEITAS = [
   },
   {
     id: '48h',
+    geladeira: true, // fermento trabalha devagar: arredondar para 1–2 g não pede aviso
     curto: '48 h geladeira',
     wMin: 300,
     wIdeal: [300, 350],
@@ -595,6 +598,7 @@ const RECEITAS = [
       },
     ],
     dicas: [
+      'Na geladeira o fermento trabalha devagar: em receitas caseiras de 24 a 72 h é comum usar de 1 a 2 g por massa (500 g a 1 kg de farinha). Por isso o app arredonda a dose para 1 g, 1,5 g, 2 g…',
       'Prefira farinha forte, própria para longa fermentação (W 300 ou mais).',
       'Controle o frio: geladeira acima de 6 °C pode fazer a massa passar do ponto em 48 h.',
     ],

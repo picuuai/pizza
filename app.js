@@ -525,16 +525,17 @@ function atualizar() {
   $('#bolas-resultado').textContent = `${estado.bolas} × ${fmt0.format(estado.pesoBola)} g`;
   $('#farinha-total').textContent = gramas(c.farinha, 0);
   $('#agua-total').textContent = gramas(c.agua, 0);
-  // Arredondar doses muito pequenas aumenta bastante o fermento: avisa e ensina a dose exata
+  // Arredondar a dose só muda o resultado em fermentação à temperatura ambiente;
+  // na geladeira 1–2 g é a prática comum, então não há aviso
   const fator = c.fermentoExato > 0 ? c.fermento / c.fermentoExato : 1;
   const aviso = $('#aviso-fermento');
-  aviso.hidden = fator < 1.25;
+  aviso.hidden = r.geladeira || fator < 1.5;
   if (!aviso.hidden) {
     const solucao = gramas(c.fermentoExato * 100, 0);
     aviso.innerHTML =
-      `Fermento arredondado de ${fmt2.format(c.fermentoExato)} g para <strong>${gramasFermento(c.fermento)}</strong> ` +
-      `(${fmt1.format(fator)}× mais): a massa vai fermentar mais rápido — confira as bolas pelo teste do dedo e encurte o tempo se preciso. ` +
-      `<br>Para a dose exata: dissolva 1 g de fermento em 100 g de água, use <strong>${solucao}</strong> dessa mistura no lugar do fermento e tire ${solucao} da água da receita.`;
+      `Dose arredondada de ${fmt2.format(c.fermentoExato)} g para <strong>${gramasFermento(c.fermento)}</strong>. ` +
+      'Como esta fermentação é em temperatura ambiente, a massa pode ficar pronta antes: comece a conferir pelo teste do dedo mais cedo. ' +
+      `<br>Se quiser a dose exata: dissolva 1 g de fermento em 100 g de água e use ${solucao} dessa mistura, tirando ${solucao} da água da receita.`;
   }
 
   renderFases(r, c);

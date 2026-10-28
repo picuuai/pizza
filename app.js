@@ -631,5 +631,6 @@ if (!location.hash) history.replaceState(null, '', '#' + receitaAtual().id);
 rota();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  // updateViaCache: 'none' faz o navegador sempre conferir se o sw.js mudou
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {}));
 }

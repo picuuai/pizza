@@ -1,6 +1,6 @@
 // Guarda o app no aparelho para funcionar sem internet.
-// Ao mudar qualquer arquivo, aumente a versão para os celulares baixarem de novo.
-const VERSAO = 'massa-pizza-v5';
+// Com internet, sempre busca a versão mais nova dos arquivos do app.
+const VERSAO = 'massa-pizza-v6';
 const ARQUIVOS = [
   './',
   'index.html',
@@ -13,9 +13,15 @@ const ARQUIVOS = [
   'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png',
 ];
+const ESPERA_REDE_MS = 4000;
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSAO).then((c) => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
+  // cache: 'reload' ignora o cache HTTP do navegador (o GitHub Pages manda guardar por 10 min)
+  e.waitUntil(
+    caches.open(VERSAO)
+      .then((c) => c.addAll(ARQUIVOS.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {
@@ -30,8 +36,25 @@ self.addEventListener('activate', (e) => {
 const FOTOS = 'massa-pizza-fotos';
 const ehFoto = (url) => /(^|\.)wikimedia\.org$/.test(url.hostname);
 
-// Responde com a cópia salva (rápido e offline) e atualiza a cópia em segundo plano;
-// a versão nova aparece na próxima vez que o app for aberto.
+// Arquivos do app: tenta a rede primeiro (versão mais nova, revalidando com o servidor)
+// e usa a cópia salva se estiver sem internet ou a rede demorar demais.
+async function redePrimeiro(request) {
+  const cache = await caches.open(VERSAO);
+  const url = new URL(request.url);
+  url.search = '';
+  const chave = url.href;
+
+  const rede = fetch(chave, { cache: 'no-cache' }).then((resp) => {
+    if (resp.ok) cache.put(chave, resp.clone());
+    return resp;
+  });
+  const salvo = await cache.match(chave);
+  if (!salvo) return rede;
+
+  const limite = new Promise((resolver) => setTimeout(() => resolver(salvo), ESPERA_REDE_MS));
+  return Promise.race([rede.catch(() => salvo), limite]);
+}
+
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
@@ -48,20 +71,5 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (url.origin !== location.origin) return;
-  e.respondWith(
-    caches.open(VERSAO).then(async (cache) => {
-      const salvo = await cache.match(e.request, { ignoreSearch: true });
-      const rede = fetch(e.request)
-        .then((resp) => {
-          if (resp.ok) cache.put(e.request, resp.clone());
-          return resp;
-        })
-        .catch(() => salvo);
-      if (salvo) {
-        e.waitUntil(rede);
-        return salvo;
-      }
-      return rede;
-    })
-  );
+  e.respondWith(redePrimeiro(e.request));
 });

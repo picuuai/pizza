@@ -1,6 +1,6 @@
 // Guarda o app no aparelho para funcionar sem internet.
 // Com internet, sempre busca a versão mais nova dos arquivos do app.
-const VERSAO = 'massa-pizza-v9';
+const VERSAO = 'massa-pizza-v10';
 const ARQUIVOS = [
   './',
   'index.html',

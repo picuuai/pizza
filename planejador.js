@@ -36,7 +36,7 @@ function cabeNoLivre(ini, fim) {
 function blocosDaReceita(r) {
   const blocos = [];
   let atual = null;
-  for (const fase of r.fases) {
+  for (const fase of fasesDe(r)) {
     for (const passo of fase.passos) {
       if (!atual) atual = { passos: [], ativo: 0, espera: [0, 0] };
       atual.passos.push({ passo, fase, offset: atual.ativo });
@@ -116,7 +116,7 @@ function horarioAssar(r) {
 
 function planoDe(r) {
   const assar = horarioAssar(r);
-  const chave = [r.id, assar, JSON.stringify(estado.livre), estado.forno].join('|');
+  const chave = [r.id, assar, JSON.stringify(estado.livre), estado.forno, estado.autolise].join('|');
   if (cachePlano.chave !== chave) cachePlano = { chave, plano: planejar(r, assar) };
   return cachePlano.plano;
 }

@@ -19,6 +19,7 @@
 //   Receitas sem tempRef (geladeira ou biga a 18 °C controlados) não têm a dose ajustada.
 // fase.ddt: temperatura final desejada da massa na etapa (usada para calcular a água);
 //   fase.semSova: etapa sem sova (pré-fermento), sem o aquecimento da sova no cálculo.
+// passo.mistura: passo de mistura, trocado pelos passos de autólise quando ela está ligada no app.
 // passo.ativo: minutos de mão na massa; passo.espera: [mín, máx] horas de espera depois do passo.
 //   O planejador usa esses tempos para montar o cronograma.
 
@@ -132,6 +133,7 @@ const misturaDireta = () => [
   {
     icone: 'tigela',
     titulo: 'Dissolva o fermento e misture',
+    mistura: true,
     tempo: '5 min + 10 min',
     ativo: 15,
     foto: 'farinha',
@@ -140,8 +142,47 @@ const misturaDireta = () => [
   {
     icone: 'tigela',
     titulo: 'Junte o sal e o azeite',
+    mistura: true,
     ativo: 5,
     texto: 'Dissolva o sal ({sal}) nos {aguaResto} de água que sobraram e incorpore à massa, apertando com os dedos até absorver. O sal entra depois para não ficar em contato direto com o fermento. Por último, junte o azeite ({azeite}) em fio, aos poucos.',
+  },
+];
+
+// Autólise (opção do app): farinha e água descansam antes de entrar fermento e sal.
+// {fermentoAutolise}, {juntarPrefermento} e {azeiteFinal} são montados pelo app.
+const AUTOLISE = {
+  icone: 'relogio',
+  titulo: 'Autólise',
+  tempo: '30–60 min',
+  ativo: 5,
+  espera: [0.5, 1],
+};
+
+const AUTOLISE_DIRETA = [
+  {
+    ...AUTOLISE,
+    texto: 'Misture só a farinha ({farinha}) com {agua90} de água a {tempAgua}, até não sobrar farinha seca — sem fermento e sem sal. Tampe e deixe descansar 30–60 min: a farinha se hidrata e o glúten começa a se formar sozinho, e a massa fica lisa e extensível com bem menos sova.',
+  },
+  { icone: 'tigela', titulo: 'Junte o fermento', ativo: 3, texto: '{fermentoAutolise}' },
+  {
+    icone: 'tigela',
+    titulo: 'Junte o sal',
+    ativo: 5,
+    texto: 'Dissolva o sal ({sal}) nos {aguaResto} de água que sobraram e incorpore à massa aos poucos, apertando com os dedos até absorver.{azeiteFinal} Depois da autólise a sova fica mais curta: costuma bastar metade do tempo.',
+  },
+];
+
+const AUTOLISE_FINAL = [
+  {
+    ...AUTOLISE,
+    texto: 'Misture a farinha restante ({finFarinha}) com {finAgua23} de água a {tempAgua}, até não sobrar farinha seca — ainda sem o pré-fermento e sem sal. Tampe e deixe descansar 30–60 min.',
+  },
+  { icone: 'tigela', titulo: 'Junte o pré-fermento', ativo: 5, texto: '{juntarPrefermento}' },
+  {
+    icone: 'tigela',
+    titulo: 'Sal e o restante da água',
+    ativo: 5,
+    texto: 'Junte o sal ({sal}) dissolvido nos {finAguaResto} de água restantes, aos poucos, apertando com os dedos até absorver.{azeiteFinal} Depois da autólise a sova fica mais curta: costuma bastar metade do tempo.',
   },
 ];
 
@@ -187,12 +228,14 @@ const RECEITAS = [
           {
             icone: 'tigela',
             titulo: 'Água e sal',
+            mistura: true,
             ativo: 2,
             texto: 'Coloque toda a água ({agua}) na tigela (ou na amassadeira) e dissolva nela o sal ({sal}).',
           },
           {
             icone: 'tigela',
             titulo: 'Farinha e fermento',
+            mistura: true,
             tempo: '10 min',
             ativo: 10,
             foto: 'farinha',
@@ -300,6 +343,7 @@ const RECEITAS = [
           {
             icone: 'tigela',
             titulo: 'Desmanche a biga',
+            mistura: true,
             tempo: '3–5 min',
             ativo: 5,
             texto: 'Coloque a biga em pedaços na tigela (ou na batedeira) com {finAgua23} de água a {tempAgua} e aperte/mexa por 3–5 min até ela se desfazer e virar um creme grosso.',
@@ -307,6 +351,7 @@ const RECEITAS = [
           {
             icone: 'tigela',
             titulo: 'Farinha, sal, água e azeite',
+            mistura: true,
             ativo: 8,
             texto: 'Adicione {finFarinha} de farinha e misture até formar uma massa. Junte o sal ({sal}) e, então, os {finAguaResto} de água restantes aos poucos — só coloque mais quando a anterior tiver sido absorvida. Por último, o azeite ({azeite}) em fio.',
           },
@@ -402,12 +447,14 @@ const RECEITAS = [
           {
             icone: 'tigela',
             titulo: 'Dilua o poolish',
+            mistura: true,
             ativo: 3,
             texto: 'Coloque o poolish e {finAgua23} de água a {tempAgua} numa tigela e mexa até diluir.',
           },
           {
             icone: 'tigela',
             titulo: 'Farinha e descanso',
+            mistura: true,
             tempo: '15 min',
             ativo: 20,
             texto: 'Adicione {finFarinha} de farinha aos poucos, mexendo, até formar uma massa sem farinha seca. Tampe e descanse 15 min (autólise curta) — a massa fica mais fácil de sovar.',
@@ -415,6 +462,7 @@ const RECEITAS = [
           {
             icone: 'tigela',
             titulo: 'Sal, água e azeite',
+            mistura: true,
             ativo: 5,
             texto: 'Junte o sal ({sal}) dissolvido nos {finAguaResto} de água restantes, apertando com os dedos até absorver. Por último, o azeite ({azeite}) em fio.',
           },

@@ -23,6 +23,7 @@ function carregarEstado() {
     tempFonte: 'manual', // 'manual' | 'previsao'
     previsao: null, // { lat, lon, em, atual, horas: [ms], temps: [°C] }
     sova: 'mao',
+    autolise: false,
     forno: 'pedra',
     assarEm: null, // horário escolhido para assar (ms)
     livre: { util: ['18:00', '23:00'], fds: ['08:00', '23:00'] },
@@ -135,6 +136,26 @@ const ROTULO_COMPAT = {
   fraca: 'Farinha fraca para esta receita',
   forte: 'Farinha mais forte que o necessário',
 };
+
+// Fases com a técnica escolhida: com autólise, os passos de mistura dão lugar aos de autólise
+// (na massa final, nas receitas com pré-fermento)
+function fasesDe(r) {
+  if (!estado.autolise) return r.fases;
+  return r.fases.map((fase) => {
+    if (fase.ingredientes === 'prefermento') return fase;
+    const autolise = fase.ingredientes === 'final' ? AUTOLISE_FINAL : AUTOLISE_DIRETA;
+    const passos = [];
+    let trocou = false;
+    for (const p of fase.passos) {
+      if (!p.mistura) passos.push(p);
+      else if (!trocou) {
+        passos.push(...autolise);
+        trocou = true;
+      }
+    }
+    return { ...fase, passos };
+  });
+}
 
 // ---------- Cálculo ----------
 
@@ -347,10 +368,8 @@ function mostrarReceita() {
   $('#nome').textContent = r.nome;
   $('#resumo').textContent = r.resumo;
   $('#prazo').textContent = r.prazo;
-  $('#metodo').textContent = 'Método: ' + r.metodo;
   $('#azeite-tag').textContent = r.azeite ? `Com azeite ${pct(r.azeite)}` : 'Sem azeite';
 
-  $('#linha-tempo').innerHTML = r.linhaTempo.map((t) => `<li>${t}</li>`).join('');
   $('#dicas').innerHTML = r.dicas.map((d) => `<li>${d}</li>`).join('');
   $('#fontes').innerHTML = r.fontes
     .map((f) => `<li><a href="${f.url}" target="_blank" rel="noopener">${f.nome}</a></li>`)
@@ -358,12 +377,26 @@ function mostrarReceita() {
   $('#nota-azeite').hidden = !r.azeite;
 
   sincronizarEntradas();
+  renderTecnica(r);
   atualizar();
+}
+
+// Partes do cabeçalho que mudam com a autólise
+function renderTecnica(r) {
+  $('#metodo').textContent = 'Método: ' + r.metodo + (estado.autolise ? ' · com autólise' : '');
+  const linha = [...r.linhaTempo];
+  if (estado.autolise) linha.splice(r.prefermento ? 1 : 0, 0, 'Autólise 30–60 min');
+  $('#linha-tempo').innerHTML = linha.map((t) => `<li>${t}</li>`).join('');
 }
 
 function sincronizarEntradas() {
   for (const b of document.querySelectorAll('[data-fermento]')) {
     const ativo = b.dataset.fermento === estado.fermentoTipo;
+    b.classList.toggle('ativo', ativo);
+    b.setAttribute('aria-pressed', ativo);
+  }
+  for (const b of document.querySelectorAll('[data-autolise]')) {
+    const ativo = (b.dataset.autolise === 'sim') === estado.autolise;
     b.classList.toggle('ativo', ativo);
     b.setAttribute('aria-pressed', ativo);
   }
@@ -590,6 +623,15 @@ function valoresDoTexto(r, c) {
     ? `Misture ${forte(fermento)} de fermento seco instantâneo em ${forte(agua90)} de água.`
     : `Esfarele ${forte(fermento)} de fermento fresco em ${forte(agua90)} de água e mexa até dissolver.`;
   v.instrucaoForno = fornoAtual().texto;
+  v.fermentoAutolise = estado.fermentoTipo === 'seco'
+    ? `Espalhe ${forte(fermento)} de fermento seco instantâneo por cima da massa e aperte e dobre com os dedos até incorporar (2–3 min).`
+    : `Esfarele ${forte(fermento)} de fermento fresco por cima da massa e aperte e dobre com os dedos até ele sumir na massa (2–3 min).`;
+  v.azeiteFinal = r.azeite ? ` Por último, junte o azeite (${v.azeite}) em fio.` : '';
+  if (r.prefermento) {
+    v.juntarPrefermento = r.prefermento.artigo === 'a'
+      ? `Junte a biga em pedaços e aperte e dobre a massa até a biga se misturar por completo (3–5 min).`
+      : `Junte o poolish aos poucos, apertando e dobrando a massa até absorver tudo (3–5 min).`;
+  }
   return v;
 }
 
@@ -608,7 +650,7 @@ function preencher(texto, v) {
 
 function renderFases(r, c) {
   const v = valoresDoTexto(r, c);
-  $('#fases').innerHTML = r.fases.map((fase) => {
+  $('#fases').innerHTML = fasesDe(r).map((fase) => {
     const vf = valoresDaFase(r, fase, v);
     return `
     <section class="card fase">
@@ -741,7 +783,7 @@ function textoReceita() {
     `Hidratação ${pct(c.hidratacao)} · farinha W ${estado.farinhaW} · ${nomeFermento(estado.fermentoTipo)} · cozinha a ${grausC(temperaturaAmbiente())}`,
     `Forno: ${fornoAtual().nome}`,
   ];
-  for (const fase of r.fases) {
+  for (const fase of fasesDe(r)) {
     const vf = valoresDaFase(r, fase, v);
     linhas.push('', `*${fase.titulo}*${fase.quando ? ` (${fase.quando})` : ''}`);
     for (const l of ingredientesDaFase(r, c, fase)) {
@@ -784,6 +826,14 @@ function ligarEventos() {
     b.addEventListener('click', () => {
       estado.fermentoTipo = b.dataset.fermento;
       sincronizarEntradas();
+      atualizar();
+    });
+  }
+  for (const b of document.querySelectorAll('[data-autolise]')) {
+    b.addEventListener('click', () => {
+      estado.autolise = b.dataset.autolise === 'sim';
+      sincronizarEntradas();
+      renderTecnica(receitaAtual());
       atualizar();
     });
   }

@@ -25,6 +25,7 @@ function carregarEstado() {
     sova: 'mao', // 'mao' | 'batedeira' | 'dobras' (sem sova)
     autolise: false,
     acucar: 'auto', // 'auto' | 0 | 0.01 | 0.02 (fração da farinha)
+    bigaLocal: 'fresco', // onde a biga fermenta: 'fresco' (16–20 °C) | 'cozinha' | 'geladeira'
     forno: 'pedra',
     assarEm: null, // horário escolhido para assar (ms)
     livre: { util: ['18:00', '23:00'], fds: ['08:00', '23:00'] },
@@ -60,11 +61,57 @@ function temperaturaAmbiente() {
   return Math.round(media * 2) / 2;
 }
 
+const limitar = (x, min, max) => Math.min(max, Math.max(min, x));
+const tempUtil = () => limitar(temperaturaAmbiente(), 10, 35);
+
+// Temperatura para a qual a dose de fermento da receita foi pensada, quando ela fermenta na
+// cozinha (sem referência: geladeira ou biga em local fresco controlado, dose fixa)
+function tempRefDose(receita) {
+  if (receita.tempRef) return receita.tempRef;
+  if (receita.prefermento && receita.prefermento.temp && estado.bigaLocal === 'cozinha') return receita.prefermento.temp;
+  return null;
+}
+
 // A fermentação dobra de velocidade a cada ~10 °C: ajusta a dose para a temperatura da cozinha
 function fatorTemperatura(receita) {
-  if (!receita.tempRef) return 1;
-  const t = Math.min(35, Math.max(10, temperaturaAmbiente()));
-  return Math.min(2.5, Math.max(0.35, 2 ** ((receita.tempRef - t) / 10)));
+  const ref = tempRefDose(receita);
+  if (!ref) return 1;
+  return limitar(2 ** ((ref - tempUtil()) / 10), 0.35, 2.5);
+}
+
+// Quanto uma espera muda em relação ao tempo da receita (1 = igual; 0,5 = metade do tempo).
+// Fermentação: tempo ∝ 1 / (dose × velocidade), com a velocidade dobrando a cada ~10 °C.
+// Nas receitas com dose ajustada à cozinha, sobra só o efeito do arredondamento da dose
+// (ex.: 0,32 g arredondado para 1 g = ~3× mais rápido).
+function fatorEspera(r, c, passo) {
+  if (passo.local === 'geladeira') return 1;
+  if (passo.local === 'biga' && estado.bigaLocal !== 'cozinha') return 1;
+  const t = tempUtil();
+  // massa gelada voltando à temperatura ambiente: mais rápido no calor
+  if (passo.aquecer) return limitar(2 ** ((21 - t) / 10), 0.6, 1.6);
+  const ref = tempRefDose(r);
+  if (ref) {
+    const doseNaRef = fermentoBase(r) * c.farinha; // dose pensada para a temperatura de referência
+    const doseIdealAqui = doseNaRef / 2 ** ((t - ref) / 10);
+    return limitar(doseIdealAqui / c.fermento, 0.2, 3);
+  }
+  // fermento fixo (bloco antes da geladeira, massa final da biga): só a temperatura conta
+  return limitar(2 ** (((r.tempAmbiente ?? 22) - t) / 10), 0.5, 2);
+}
+
+// Espera do passo ajustada à cozinha, à dose e às dobras (horas reais)
+function esperaAjustada(r, c, passo) {
+  if (!passo.espera) return passo.espera;
+  if (passo.local === 'biga' && estado.bigaLocal === 'geladeira') return [21, 25]; // 1 h fora + 20–24 h
+  const k = fatorEspera(r, c, passo);
+  const desconto = passo.descontoDobras || 0;
+  return [Math.max(0, passo.espera[0] * k - desconto), Math.max(0, passo.espera[1] * k - desconto)];
+}
+
+function temperaturaDaBiga() {
+  if (estado.bigaLocal === 'cozinha') return tempUtil();
+  if (estado.bigaLocal === 'geladeira') return 10; // 1 h fora da geladeira antes de usar
+  return 18;
 }
 
 // Temperatura da água para a massa terminar na temperatura desejada (fórmula da padaria):
@@ -73,7 +120,7 @@ function tempAgua(receita, fase) {
   const t = temperaturaAmbiente();
   const friccao = fase.semSova ? 0 : FRICCAO[estado.sova] ?? FRICCAO.mao;
   if (fase.ingredientes === 'final' && receita.prefermento) {
-    const tpf = receita.prefermento.temp ?? t;
+    const tpf = receita.prefermento.temp ? temperaturaDaBiga() : t;
     return 4 * fase.ddt - t - t - tpf - friccao;
   }
   return 3 * fase.ddt - t - t - friccao;
@@ -103,13 +150,16 @@ function fornoAtual() {
 
 // ---------- Farinha e fermento ----------
 
-// Fermento da receita convertido para o tipo escolhido e ajustado à temperatura (fração da farinha)
+// Fermento da receita convertido para o tipo escolhido, sem ajuste de temperatura (fração da farinha)
+function fermentoBase(receita) {
+  const f = receita.fermento;
+  if (receita.tipoFermento === estado.fermentoTipo) return f;
+  return estado.fermentoTipo === 'seco' ? f / FRESCO_POR_SECO : f * FRESCO_POR_SECO;
+}
+
+// Fermento convertido para o tipo escolhido e ajustado à temperatura (fração da farinha)
 function fermentoDe(receita) {
-  let f = receita.fermento * fatorTemperatura(receita);
-  if (receita.tipoFermento !== estado.fermentoTipo) {
-    f = estado.fermentoTipo === 'seco' ? f / FRESCO_POR_SECO : f * FRESCO_POR_SECO;
-  }
-  return f;
+  return fermentoBase(receita) * fatorTemperatura(receita);
 }
 
 // Água que a farinha absorve bem, pela força W (valores indicativos)
@@ -173,7 +223,7 @@ function passoDobras(r) {
       `Faça ${series} séries de dobras, a cada ${intervalo} min (~${duracaoDobras(total)} no total): com a mão molhada, pegue a massa por baixo de um lado, ` +
       'estique para cima até sentir resistência e dobre sobre o centro; gire a tigela um quarto de volta e repita até completar a volta (4 dobras). ' +
       'A cada série a massa fica mais lisa, firme e elástica — o glúten se forma com o tempo e as dobras. ' +
-      `No fim ela deve estar lisa e segurar a forma, a ~{ddt}. As dobras já contam como descanso: se a massa estiver bem crescida, encurte o descanso em bloco seguinte.${firme}`,
+      `No fim ela deve estar lisa e segurar a forma, a ~{ddt}. O tempo das dobras já é descontado do descanso em bloco seguinte.${firme}`,
   };
 }
 
@@ -190,12 +240,18 @@ function fasesDe(r) {
     const autolise = fase.ingredientes === 'final' ? AUTOLISE_FINAL : AUTOLISE_DIRETA;
     const passos = [];
     let trocou = false;
+    let dobrasH = 0; // a massa já fermenta durante as dobras: o próximo descanso fica mais curto
     for (const p of fase.passos) {
       if (p.mistura && estado.autolise) {
         if (!trocou) passos.push(...autolise);
         trocou = true;
       } else if (p.sova && estado.sova === 'dobras') {
-        passos.push(passoDobras(r));
+        const dobras = passoDobras(r);
+        dobrasH = (dobras.ativo - 5) / 60;
+        passos.push(dobras);
+      } else if (dobrasH && p.espera && p.local !== 'geladeira') {
+        passos.push({ ...p, descontoDobras: dobrasH });
+        dobrasH = 0;
       } else {
         passos.push(p);
       }
@@ -449,6 +505,11 @@ function sincronizarEntradas() {
     b.classList.toggle('ativo', ativo);
     b.setAttribute('aria-pressed', ativo);
   }
+  for (const b of document.querySelectorAll('[data-biga]')) {
+    const ativo = b.dataset.biga === estado.bigaLocal;
+    b.classList.toggle('ativo', ativo);
+    b.setAttribute('aria-pressed', ativo);
+  }
   for (const b of document.querySelectorAll('[data-acucar]')) {
     const ativo = b.dataset.acucar === String(estado.acucar);
     b.classList.toggle('ativo', ativo);
@@ -559,18 +620,25 @@ function renderCozinha(r) {
   $('#agua-info').innerHTML = 'Água: ' + aguas.join(' · ');
 
   const fator = fatorTemperatura(r);
+  const ref = tempRefDose(r);
   let fermentoTexto;
-  if (!r.tempRef) {
-    fermentoTexto = r.geladeira
-      ? 'Nesta receita a fermentação principal é na geladeira, então a dose de fermento não muda com a temperatura da cozinha — só a temperatura da água.'
-      : 'Nesta receita a biga fermenta a 18 °C controlados, então a dose de fermento não muda com a temperatura da cozinha.';
+  if (!ref) {
+    if (r.geladeira) {
+      fermentoTexto = 'A fermentação principal é na geladeira: a dose de fermento não muda com a cozinha. Os descansos fora da geladeira (bloco e "tirar antes de assar") têm o tempo ajustado à temperatura.';
+    } else {
+      fermentoTexto = (estado.bigaLocal === 'geladeira'
+        ? 'A biga fermenta na geladeira: dose e tempo fixos (1 h fora + 20–24 h).'
+        : 'A biga fermenta num local fresco (16–20 °C): dose e tempo fixos.') +
+        ' A massa final e as bolas têm o tempo ajustado à temperatura da cozinha.';
+    }
   } else if (Math.abs(fator - 1) < 0.05) {
-    fermentoTexto = `Dose de fermento pensada para ~${grausC(r.tempRef)}: sem ajuste para a sua cozinha.`;
+    fermentoTexto = `Dose de fermento pensada para ~${grausC(ref)}: sem ajuste para a sua cozinha.`;
   } else {
-    fermentoTexto = `Dose de fermento ajustada de ~${grausC(r.tempRef)} para ${grausC(t)}: ${fmt2.format(fator)}× a dose original ` +
+    fermentoTexto = `Dose de fermento ajustada de ~${grausC(ref)} para ${grausC(t)}: ${fmt2.format(fator)}× a dose original ` +
       `(${fator < 1 ? 'mais quente, fermenta mais rápido — menos fermento' : 'mais frio, fermenta mais devagar — mais fermento'}).`;
   }
   $('#fermento-temp').textContent = fermentoTexto;
+  $('#campo-biga').hidden = !(r.prefermento && r.prefermento.temp);
   const acucar = acucarDe(r);
   const forno = fornoAtual();
   let acucarTexto;
@@ -693,6 +761,11 @@ function valoresDoTexto(r, c) {
     ? `Misture ${forte(fermento)} de fermento seco instantâneo em ${forte(agua90)} de água.`
     : `Esfarele ${forte(fermento)} de fermento fresco em ${forte(agua90)} de água e mexa até dissolver.`;
   v.instrucaoForno = fornoAtual().texto;
+  v.bigaMaturar = {
+    fresco: 'Deixe 16–24 h num local a 16–20 °C — um cômodo fresco, adega ou geladeira de bebidas.',
+    cozinha: `Deixe na cozinha (${grausC(tempUtil())}): a dose de fermento já foi ajustada para essa temperatura e o tempo previsto aparece logo abaixo. Confira pelo ponto, não só pelo relógio.`,
+    geladeira: 'Deixe 1 h em temperatura ambiente e depois 20–24 h na geladeira (4–6 °C); tire 1 h antes de usar.',
+  }[estado.bigaLocal];
   v.fermentoAutolise = estado.fermentoTipo === 'seco'
     ? `Espalhe ${forte(fermento)} de fermento seco instantâneo por cima da massa e aperte e dobre com os dedos até incorporar (2–3 min).`
     : `Esfarele ${forte(fermento)} de fermento fresco por cima da massa e aperte e dobre com os dedos até ele sumir na massa (2–3 min).`;
@@ -720,8 +793,37 @@ function preencher(texto, v) {
   return texto.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
 }
 
+const arredHoras = (h) => Math.round(h * 4) / 4;
+
+function faixaHoras([a, b]) {
+  const x = arredHoras(a);
+  const y = arredHoras(b);
+  return x === y ? duracaoTexto(x) : `${duracaoTexto(x)}–${duracaoTexto(y)}`;
+}
+
+// Espera do passo recalculada para a cozinha, a dose e as dobras, com a explicação
+function ajusteDoPasso(r, c, p) {
+  if (!p.espera) return null;
+  const adj = esperaAjustada(r, c, p);
+  const difere = (x, y) => Math.abs(x - y) > 0.1 * y + 0.05;
+  if (!difere(adj[0], p.espera[0]) && !difere(adj[1], p.espera[1])) return null;
+  if (adj[1] <= 0) {
+    return { chip: 'pular', nota: '⏱ Pode pular este descanso: as dobras já cobriram esse tempo.' };
+  }
+  let motivo;
+  if (p.local === 'biga' && estado.bigaLocal === 'geladeira') motivo = 'Com a biga na geladeira';
+  else if (p.aquecer || !tempRefDose(r)) motivo = `Com a cozinha a ${grausC(tempUtil())}`;
+  else motivo = `Com a cozinha a ${grausC(tempUtil())} e ${gramasFermento(c.fermento)} de fermento`;
+  if (p.descontoDobras) motivo += ', já descontado o tempo das dobras';
+  return {
+    chip: '~' + faixaHoras(adj),
+    nota: `⏱ ${motivo}: <strong>~${faixaHoras(adj)}</strong> (na receita: ${faixaHoras(p.espera)}).`,
+  };
+}
+
 function renderFases(r, c) {
   const v = valoresDoTexto(r, c);
+  let algumAjuste = false;
   $('#fases').innerHTML = fasesDe(r).map((fase) => {
     const vf = valoresDaFase(r, fase, v);
     return `
@@ -733,21 +835,29 @@ function renderFases(r, c) {
       ${tabelaIngredientes(ingredientesDaFase(r, c, fase))}
       <h4 class="modo-titulo">Modo de fazer</h4>
       <ol class="passos">
-        ${fase.passos.map((p) => `
+        ${fase.passos.map((p) => {
+          const ajuste = ajusteDoPasso(r, c, p);
+          if (ajuste) algumAjuste = true;
+          return `
           <li class="passo">
             <div class="passo-icone">${icone(p.icone)}</div>
             <div class="passo-corpo">
               <div class="passo-topo">
                 <strong>${p.titulo}</strong>
-                ${p.tempo ? `<span class="tempo">${p.tempo}</span>` : ''}
+                ${ajuste ? `<span class="tempo ajustado">${ajuste.chip}</span>` : p.tempo ? `<span class="tempo">${p.tempo}</span>` : ''}
               </div>
               <p>${preencher(p.texto, vf)}</p>
+              ${ajuste ? `<p class="ajuste">${ajuste.nota}</p>` : ''}
               ${p.foto ? figura(p.foto, 'foto-passo') : ''}
             </div>
-          </li>`).join('')}
+          </li>`;
+        }).join('')}
       </ol>
     </section>`;
   }).join('');
+  const nota = $('#linha-nota');
+  nota.hidden = !algumAjuste;
+  nota.textContent = `⏱ Tempos acima são os da receita. Com a sua cozinha a ${grausC(tempUtil())} e a dose usada, alguns descansos mudam: veja o tempo certo em cada passo e no planejador.`;
 }
 
 function atualizar() {
@@ -771,9 +881,9 @@ function atualizar() {
   if (!aviso.hidden) {
     const solucao = gramas(c.fermentoExato * 100, 0);
     aviso.innerHTML =
-      `Dose arredondada de ${fmt2.format(c.fermentoExato)} g para <strong>${gramasFermento(c.fermento)}</strong>. ` +
-      'Como esta fermentação é em temperatura ambiente, a massa pode ficar pronta antes: comece a conferir pelo teste do dedo mais cedo. ' +
-      `<br>Se quiser a dose exata: dissolva 1 g de fermento em 100 g de água e use ${solucao} dessa mistura, tirando ${solucao} da água da receita.`;
+      `Dose arredondada de ${fmt2.format(c.fermentoExato)} g para <strong>${gramasFermento(c.fermento)}</strong> (a balança de casa não pesa menos). ` +
+      'Com mais fermento a massa fica pronta antes: os tempos de fermentação fora da geladeira já foram encurtados em cada passo e no planejador. ' +
+      `<br>Se preferir os tempos da receita, use a dose exata: dissolva 1 g de fermento em 100 g de água e use ${solucao} dessa mistura, tirando ${solucao} da água da receita.`;
   }
 
   renderFases(r, c);
@@ -906,6 +1016,13 @@ function ligarEventos() {
       estado.autolise = b.dataset.autolise === 'sim';
       sincronizarEntradas();
       renderTecnica(receitaAtual());
+      atualizar();
+    });
+  }
+  for (const b of document.querySelectorAll('[data-biga]')) {
+    b.addEventListener('click', () => {
+      estado.bigaLocal = b.dataset.biga;
+      sincronizarEntradas();
       atualizar();
     });
   }

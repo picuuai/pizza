@@ -447,3 +447,12 @@ body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   .stepper input, .hid-valor input { font-size: 1rem; }
   a { color: inherit; text-decoration: none; }
 }
+
+/* Tempos recalculados para a cozinha e a dose usada */
+.ajuste {
+  margin: 8px 0 0; padding: 6px 10px; border-radius: 8px;
+  background: var(--amber-soft); color: var(--ink); font-size: 0.86rem;
+}
+.ajuste strong { color: var(--amber); }
+.cabecalho .ajuste { margin-top: 10px; }
+.tempo.ajustado { background: var(--amber); color: var(--surface); }

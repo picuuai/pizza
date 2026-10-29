@@ -9,7 +9,7 @@
 // {acucarFrase} (" Junte também X g de açúcar." quando o app usa açúcar)
 // e {fermentoDissolver} (frase pronta de como dissolver {fermento} em {agua90}).
 // Temperaturas da etapa: {tempAgua} (água calculada), {ddt} (temperatura final desejada da massa),
-// {tempCozinha}; e {instrucaoForno} (como assar no forno escolhido).
+// {tempCozinha}; {instrucaoForno} (como assar no forno escolhido); {bigaMaturar} (onde e quanto a biga fermenta).
 //
 // O fermento de cada receita está em `tipoFermento`; o app converte se o usuário
 // escolher o outro tipo (seco instantâneo = fresco ÷ 3, como indica a AVPN).
@@ -24,7 +24,13 @@
 // passo.sova: passo de sova, trocado pelas dobras quando o app está em "Sem sova".
 // {notaSova}: lembrete de sova mais curta depois da autólise (vazio em "Sem sova").
 // passo.mistura: passo de mistura, trocado pelos passos de autólise quando ela está ligada no app.
-// passo.ativo: minutos de mão na massa; passo.espera: [mín, máx] horas de espera depois do passo.
+// passo.ativo: minutos de mão na massa; passo.espera: [mín, máx] horas de espera depois do passo,
+//   nas condições da receita. O app recalcula as esperas fora da geladeira pela temperatura da
+//   cozinha e pela dose de fermento realmente usada (veja fatorEspera em app.js):
+//   passo.local 'geladeira' (não muda), 'biga' (depende de onde a biga fermenta);
+//   passo.aquecer: tempo para a massa gelada voltar à temperatura ambiente.
+// tempAmbiente: temperatura de referência das esperas em temperatura ambiente das receitas
+//   sem tempRef (padrão 22 °C).
 //   O planejador usa esses tempos para montar o cronograma.
 
 const AZEITE = 0.03; // 3% nas receitas adaptadas (30 g por kg de farinha), por preferência
@@ -307,6 +313,7 @@ const RECEITAS = [
     tipoFermento: 'fresco',
     azeite: AZEITE,
     acucar: 0,
+    tempAmbiente: 23, // massa final e bolas pensadas para 22–24 °C
     prefermento: { nome: 'Biga', artigo: 'a', rotulo: 'Toda a biga', farinha: 0.5, agua: 0.45, fermento: 0.01, temp: 18 },
     linhaTempo: ['Biga 16–24 h', 'Massa final 20 min', 'Bloco 30–60 min', 'Bolas 3–5 h', 'Assar'],
     fases: [
@@ -336,7 +343,8 @@ const RECEITAS = [
             tempo: '16–24 h',
             ativo: 1,
             espera: [16, 24],
-            texto: 'Passe para um pote sem compactar, tampe deixando uma fresta (ou filme com furinhos) e deixe 16–24 h a 18 °C — um cômodo fresco, adega ou geladeira de bebidas. Sem um lugar a 18 °C: 1 h em temperatura ambiente + 20–24 h na geladeira (4 °C), tirando 1 h antes de usar.',
+            local: 'biga',
+            texto: 'Passe para um pote sem compactar e tampe deixando uma fresta (ou filme com furinhos). {bigaMaturar}',
           },
           {
             icone: 'dedo',
@@ -667,6 +675,7 @@ const RECEITAS = [
           {
             icone: 'geladeira',
             titulo: 'Geladeira',
+            local: 'geladeira',
             tempo: '18–24 h',
             ativo: 1,
             espera: [18, 24],
@@ -675,6 +684,7 @@ const RECEITAS = [
           {
             icone: 'relogio',
             titulo: 'Tire da geladeira antes',
+            aquecer: true,
             tempo: '2–4 h',
             ativo: 1,
             espera: [2, 4],
@@ -740,6 +750,7 @@ const RECEITAS = [
           {
             icone: 'geladeira',
             titulo: 'Geladeira em bloco',
+            local: 'geladeira',
             tempo: '~24 h',
             ativo: 1,
             espera: [22, 26],
@@ -749,6 +760,7 @@ const RECEITAS = [
           {
             icone: 'geladeira',
             titulo: 'Bolas na geladeira',
+            local: 'geladeira',
             tempo: '16–22 h',
             ativo: 1,
             espera: [16, 22],
@@ -757,6 +769,7 @@ const RECEITAS = [
           {
             icone: 'relogio',
             titulo: 'Tire da geladeira antes',
+            aquecer: true,
             tempo: '3–5 h',
             ativo: 1,
             espera: [3, 5],

@@ -38,6 +38,7 @@
       <p class="tags"><span id="metodo" class="tag"></span> <span id="azeite-tag" class="tag"></span></p>
       <p id="prazo" class="prazo"></p>
       <ol id="linha-tempo" class="linha-tempo" aria-label="Linha do tempo"></ol>
+      <p id="linha-nota" class="ajuste" hidden></p>
       <div class="acoes-receita">
         <button id="bt-compartilhar" type="button" class="bt-sec">Compartilhar</button>
         <button id="bt-imprimir" type="button" class="bt-sec">Imprimir</button>
@@ -91,6 +92,15 @@
       <p id="temp-info" class="dica"></p>
       <p id="agua-info" class="dose"></p>
       <p id="fermento-temp" class="dica"></p>
+      <div id="campo-biga" class="campo campo-acucar" hidden>
+        <span>Onde a biga fermenta</span>
+        <div class="segmentos segmentos-3" role="group" aria-label="Onde a biga fermenta">
+          <button type="button" data-biga="fresco">Local fresco</button>
+          <button type="button" data-biga="cozinha">Cozinha</button>
+          <button type="button" data-biga="geladeira">Geladeira</button>
+        </div>
+        <p class="dica">Local fresco = 16–20 °C (adega, cômodo fresco, geladeira de bebidas). Na cozinha, a dose e o tempo da biga são ajustados à temperatura.</p>
+      </div>
 
       <div class="insumos insumos-forno">
         <label class="campo">

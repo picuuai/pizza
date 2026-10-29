@@ -32,28 +32,39 @@ function cabeNoLivre(ini, fim) {
   return inicio >= a && inicio + (fim - ini) / MIN <= b;
 }
 
-// Agrupa passos seguidos sem espera entre eles: são feitos de uma vez só
-function blocosDaReceita(r) {
-  const blocos = [];
-  let atual = null;
+// Passos de todas as fases com a espera de cada um: ajustada à cozinha, à dose e às dobras
+// (ajustar = true) ou a da receita
+function passosDoPlano(r, ajustar) {
+  const c = ajustar ? calcular(r) : null;
+  const lista = [];
   for (const fase of fasesDe(r)) {
     for (const passo of fase.passos) {
-      if (!atual) atual = { passos: [], ativo: 0, espera: [0, 0] };
-      atual.passos.push({ passo, fase, offset: atual.ativo });
-      atual.ativo += passo.ativo || 0;
-      if (passo.espera && passo.espera[1] > 0) {
-        atual.espera = passo.espera;
-        blocos.push(atual);
-        atual = null;
-      }
+      lista.push({ passo, fase, espera: ajustar ? esperaAjustada(r, c, passo) : passo.espera });
+    }
+  }
+  return lista;
+}
+
+// Agrupa passos seguidos sem espera entre eles: são feitos de uma vez só
+function blocosDe(lista) {
+  const blocos = [];
+  let atual = null;
+  for (const { passo, fase, espera } of lista) {
+    if (!atual) atual = { passos: [], ativo: 0, espera: [0, 0] };
+    atual.passos.push({ passo, fase, offset: atual.ativo });
+    atual.ativo += passo.ativo || 0;
+    if (espera && espera[1] > 0) {
+      atual.espera = espera;
+      blocos.push(atual);
+      atual = null;
     }
   }
   if (atual) blocos.push(atual);
   return blocos;
 }
 
-function planejar(r, assar) {
-  const blocos = blocosDaReceita(r);
+function planejar(r, assar, lista = passosDoPlano(r, true)) {
+  const blocos = blocosDe(lista);
   const ultimo = blocos[blocos.length - 1];
   const passoAssar = ultimo.passos.find((x) => x.passo.assar);
   ultimo.inicio = assar - (passoAssar ? passoAssar.offset : ultimo.ativo) * MIN;
@@ -99,9 +110,10 @@ function proximoHorario(r) {
   t.setSeconds(0, 0);
   t.setMinutes(Math.ceil(t.getMinutes() / 30) * 30);
   let reserva = null;
+  const lista = passosDoPlano(r, true);
   for (let ms = t.getTime(); ms < agora + DIAS_BUSCA * 24 * HORA; ms += 30 * MIN) {
     if (!cabeNoLivre(ms, ms + 15 * MIN)) continue;
-    const p = planejar(r, ms);
+    const p = planejar(r, ms, lista);
     if (p.inicio < agora) continue;
     if (p.conflitos === 0) return ms;
     if (reserva === null) reserva = ms;
@@ -116,14 +128,19 @@ function horarioAssar(r) {
 
 function planoDe(r) {
   const assar = horarioAssar(r);
-  const chave = [r.id, assar, JSON.stringify(estado.livre), estado.forno, estado.autolise, estado.sova, hidratacaoDe(r)].join('|');
-  if (cachePlano.chave !== chave) cachePlano = { chave, plano: planejar(r, assar) };
+  const lista = passosDoPlano(r, true);
+  const tempos = lista.map((x) => [x.passo.titulo, x.passo.ativo, x.espera]);
+  const chave = [r.id, assar, JSON.stringify(estado.livre), estado.forno, JSON.stringify(tempos)].join('|');
+  if (cachePlano.chave !== chave) cachePlano = { chave, plano: planejar(r, assar, lista) };
   return cachePlano.plano;
 }
 
-// Período em que esta massa está fermentando (usado na média da previsão do tempo)
+// Período em que esta massa está fermentando (usado na média da previsão do tempo).
+// Usa os tempos da receita: os tempos ajustados dependem da própria temperatura.
 function janelaFermentacao(r) {
-  const p = planoDe(r);
+  const agora = Date.now();
+  if (!estado.assarEm || estado.assarEm < agora) return [agora, agora + 24 * HORA];
+  const p = planejar(r, estado.assarEm, passosDoPlano(r, false));
   return [p.inicio, p.assar];
 }
 

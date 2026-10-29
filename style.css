@@ -392,6 +392,7 @@ body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
 .insumos-forno .segmentos { margin-bottom: 0; }
 .campo-acucar { margin-top: 16px; }
 .segmentos-4 { grid-template-columns: repeat(4, 1fr); margin-bottom: 0; }
+.segmentos-3 { grid-template-columns: repeat(3, 1fr); margin-bottom: 0; }
 
 /* ---------- Planejador ---------- */
 

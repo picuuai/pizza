@@ -116,7 +116,7 @@ function horarioAssar(r) {
 
 function planoDe(r) {
   const assar = horarioAssar(r);
-  const chave = [r.id, assar, JSON.stringify(estado.livre), estado.forno, estado.autolise].join('|');
+  const chave = [r.id, assar, JSON.stringify(estado.livre), estado.forno, estado.autolise, estado.sova, hidratacaoDe(r)].join('|');
   if (cachePlano.chave !== chave) cachePlano = { chave, plano: planejar(r, assar) };
   return cachePlano.plano;
 }

@@ -5,7 +5,7 @@ const ML_POR_G_AZEITE = 1 / 0.92;
 const HID_MIN = 50;
 const HID_MAX = 85;
 // Aquecimento que a sova dá à massa (°C), para o cálculo da temperatura da água
-const FRICCAO = { mao: 4, batedeira: 12 };
+const FRICCAO = { mao: 4, batedeira: 12, dobras: 1 };
 const PREVISAO_VALIDADE_MS = 3 * 3600 * 1000;
 
 const estado = carregarEstado();
@@ -22,7 +22,7 @@ function carregarEstado() {
     tempCozinha: 22,
     tempFonte: 'manual', // 'manual' | 'previsao'
     previsao: null, // { lat, lon, em, atual, horas: [ms], temps: [°C] }
-    sova: 'mao',
+    sova: 'mao', // 'mao' | 'batedeira' | 'dobras' (sem sova)
     autolise: false,
     acucar: 'auto', // 'auto' | 0 | 0.01 | 0.02 (fração da farinha)
     forno: 'pedra',
@@ -147,20 +147,57 @@ const ROTULO_COMPAT = {
   forte: 'Farinha mais forte que o necessário',
 };
 
-// Fases com a técnica escolhida: com autólise, os passos de mistura dão lugar aos de autólise
-// (na massa final, nas receitas com pré-fermento)
+// Séries de dobras para formar o glúten sem sova: massas mais firmes pedem intervalos maiores,
+// massas mais moles pedem mais séries e mais próximas
+function planoDobras(h) {
+  if (h < 0.62) return { series: 4, intervalo: 30 };
+  if (h < 0.66) return { series: 3, intervalo: 30 };
+  if (h <= 0.75) return { series: 4, intervalo: 20 };
+  return { series: 5, intervalo: 15 };
+}
+
+function passoDobras(r) {
+  const h = hidratacaoDe(r);
+  const { series, intervalo } = planoDobras(h);
+  const total = (series - 1) * intervalo;
+  const firme = h < 0.62
+    ? ' Com menos de 62% de água a massa é firme: se depois da última série ela ainda estiver áspera, 1–2 min de sova curta resolvem.'
+    : '';
+  return {
+    icone: 'dobra',
+    titulo: 'Dobras (sem sova)',
+    tempo: `${series} séries · ${intervalo} em ${intervalo} min`,
+    ativo: total + 5,
+    foto: 'sova',
+    texto: 'Não precisa sovar: misture só até a massa ficar homogênea, sem farinha seca (1–2 min), e tampe. ' +
+      `Faça ${series} séries de dobras, a cada ${intervalo} min (~${duracaoDobras(total)} no total): com a mão molhada, pegue a massa por baixo de um lado, ` +
+      'estique para cima até sentir resistência e dobre sobre o centro; gire a tigela um quarto de volta e repita até completar a volta (4 dobras). ' +
+      'A cada série a massa fica mais lisa, firme e elástica — o glúten se forma com o tempo e as dobras. ' +
+      `No fim ela deve estar lisa e segurar a forma, a ~{ddt}. As dobras já contam como descanso: se a massa estiver bem crescida, encurte o descanso em bloco seguinte.${firme}`,
+  };
+}
+
+function duracaoDobras(min) {
+  return min >= 60 ? `${Math.floor(min / 60)} h${min % 60 ? ' ' + (min % 60) + ' min' : ''}` : `${min} min`;
+}
+
+// Fases com as técnicas escolhidas: com autólise, os passos de mistura dão lugar aos de autólise
+// (na massa final, nas receitas com pré-fermento); sem sova, a sova dá lugar às dobras
 function fasesDe(r) {
-  if (!estado.autolise) return r.fases;
+  if (!estado.autolise && estado.sova !== 'dobras') return r.fases;
   return r.fases.map((fase) => {
     if (fase.ingredientes === 'prefermento') return fase;
     const autolise = fase.ingredientes === 'final' ? AUTOLISE_FINAL : AUTOLISE_DIRETA;
     const passos = [];
     let trocou = false;
     for (const p of fase.passos) {
-      if (!p.mistura) passos.push(p);
-      else if (!trocou) {
-        passos.push(...autolise);
+      if (p.mistura && estado.autolise) {
+        if (!trocou) passos.push(...autolise);
         trocou = true;
+      } else if (p.sova && estado.sova === 'dobras') {
+        passos.push(passoDobras(r));
+      } else {
+        passos.push(p);
       }
     }
     return { ...fase, passos };
@@ -659,6 +696,7 @@ function valoresDoTexto(r, c) {
   v.fermentoAutolise = estado.fermentoTipo === 'seco'
     ? `Espalhe ${forte(fermento)} de fermento seco instantâneo por cima da massa e aperte e dobre com os dedos até incorporar (2–3 min).`
     : `Esfarele ${forte(fermento)} de fermento fresco por cima da massa e aperte e dobre com os dedos até ele sumir na massa (2–3 min).`;
+  v.notaSova = estado.sova === 'dobras' ? '' : ' Depois da autólise a sova fica mais curta: costuma bastar metade do tempo.';
   v.azeiteFinal = r.azeite ? ` Por último, junte o azeite (${v.azeite}) em fio.` : '';
   v.acucarFrase = c.acucarPct ? ` Junte também ${forte(gramas(c.acucar, 1))} de açúcar.` : '';
   if (r.prefermento) {

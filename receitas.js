@@ -21,6 +21,8 @@
 // fase.ddt: temperatura final desejada da massa na etapa (usada para calcular a água);
 //   fase.semSova: etapa sem sova (pré-fermento), sem o aquecimento da sova no cálculo.
 // semAcucarAuto: receita original sem açúcar; o modo automático do app não acrescenta.
+// passo.sova: passo de sova, trocado pelas dobras quando o app está em "Sem sova".
+// {notaSova}: lembrete de sova mais curta depois da autólise (vazio em "Sem sova").
 // passo.mistura: passo de mistura, trocado pelos passos de autólise quando ela está ligada no app.
 // passo.ativo: minutos de mão na massa; passo.espera: [mín, máx] horas de espera depois do passo.
 //   O planejador usa esses tempos para montar o cronograma.
@@ -127,6 +129,7 @@ const ASSAR = {
 
 const SOVAR = {
   icone: 'sova',
+  sova: true,
   titulo: 'Sove',
   tempo: '10–12 min',
   ativo: 12,
@@ -176,7 +179,7 @@ const AUTOLISE_DIRETA = [
     icone: 'tigela',
     titulo: 'Junte o sal',
     ativo: 5,
-    texto: 'Dissolva o sal ({sal}) nos {aguaResto} de água que sobraram e incorpore à massa aos poucos, apertando com os dedos até absorver.{azeiteFinal} Depois da autólise a sova fica mais curta: costuma bastar metade do tempo.',
+    texto: 'Dissolva o sal ({sal}) nos {aguaResto} de água que sobraram e incorpore à massa aos poucos, apertando com os dedos até absorver.{azeiteFinal}{notaSova}',
   },
 ];
 
@@ -190,7 +193,7 @@ const AUTOLISE_FINAL = [
     icone: 'tigela',
     titulo: 'Sal e o restante da água',
     ativo: 5,
-    texto: 'Junte o sal ({sal}) dissolvido nos {finAguaResto} de água restantes, aos poucos, apertando com os dedos até absorver.{acucarFrase}{azeiteFinal} Depois da autólise a sova fica mais curta: costuma bastar metade do tempo.',
+    texto: 'Junte o sal ({sal}) dissolvido nos {finAguaResto} de água restantes, aos poucos, apertando com os dedos até absorver.{acucarFrase}{azeiteFinal}{notaSova}',
   },
 ];
 
@@ -720,6 +723,7 @@ const RECEITAS = [
           {
             icone: 'dobra',
             titulo: 'Sove e faça dobras',
+            sova: true,
             tempo: '8 min + 45 min',
             ativo: 53,
             foto: 'sova',

@@ -5,7 +5,8 @@
 //   {farinha} {agua} {sal} {fermento} {azeite} {azeiteMl} {agua90} {aguaResto}
 //   {pfFarinha} {pfAgua} {finFarinha} {finAgua} {finAgua23} {finAguaResto} {bolas} {pesoBola}
 //   {listaPesagem} (todos os ingredientes da receita com o peso calculado)
-// e pelo fermento escolhido no app: {fermentoNome} ("fermento fresco"/"fermento seco instantâneo")
+// e pelo fermento escolhido no app: {fermentoNome} ("fermento fresco"/"fermento seco instantâneo"),
+// {acucarFrase} (" Junte também X g de açúcar." quando o app usa açúcar)
 // e {fermentoDissolver} (frase pronta de como dissolver {fermento} em {agua90}).
 // Temperaturas da etapa: {tempAgua} (água calculada), {ddt} (temperatura final desejada da massa),
 // {tempCozinha}; e {instrucaoForno} (como assar no forno escolhido).
@@ -19,6 +20,7 @@
 //   Receitas sem tempRef (geladeira ou biga a 18 °C controlados) não têm a dose ajustada.
 // fase.ddt: temperatura final desejada da massa na etapa (usada para calcular a água);
 //   fase.semSova: etapa sem sova (pré-fermento), sem o aquecimento da sova no cálculo.
+// semAcucarAuto: receita original sem açúcar; o modo automático do app não acrescenta.
 // passo.mistura: passo de mistura, trocado pelos passos de autólise quando ela está ligada no app.
 // passo.ativo: minutos de mão na massa; passo.espera: [mín, máx] horas de espera depois do passo.
 //   O planejador usa esses tempos para montar o cronograma.
@@ -35,23 +37,35 @@ const FARINHAS = [
 ];
 const W_MANITOBA = 380;
 
-// Fornos: instrução de como assar e quanto tempo antes ligar (minutos)
+// Fornos: instrução de como assar e quanto tempo antes ligar (minutos).
+// domestico: até ~300 °C, onde 1–2% de açúcar ajuda a borda a dourar (no automático do app).
 const FORNOS = [
   {
     id: 'pedra',
-    nome: 'Doméstico com pedra',
+    domestico: true,
+    nome: 'Forno comum com pedra refratária (~250 °C)',
     preaquecer: 60,
-    texto: 'Coloque a pedra na grelha mais alta e pré-aqueça no máximo (250–300 °C) por 45–60 min. Monte rápido sobre uma pá enfarinhada, deslize na pedra e asse 6–8 min; ligue o grill/gratinador no último minuto para tostar a borda.',
+    dica: 'A 250 °C a pizza assa em 7–10 min e perde mais umidade: as receitas com azeite (Biga, Poolish, Mesmo dia, 12 h, 24 h, 48 h) e o açúcar automático deixam a borda mais macia e dourada. Hidratação de 62–67% funciona bem.',
+    texto: 'Coloque a pedra refratária na grelha mais alta (a uns 15–20 cm do teto) e pré-aqueça no máximo (~250 °C) por 45–60 min: a pedra precisa acumular calor. Monte rápido sobre uma pá enfarinhada, deslize na pedra e asse 7–10 min, até a borda dourar e o fundo ficar pintado. Se o forno tiver grill/gratinador, ligue nos 1–2 min finais para tostar a borda e o queijo. Entre uma pizza e outra, espere 5–10 min para a pedra recuperar o calor.',
+  },
+  {
+    id: 'lenha',
+    nome: 'Forno iglu a lenha',
+    preaquecer: 120,
+    dica: 'É o forno para a napolitana de verdade: a AVPN Tradicional e a Biga rendem o melhor aqui, com borda alta e manchada em 60–90 s. Sem açúcar (queimaria) e, se quiser, sem azeite na massa.',
+    texto: 'Acenda 1h30–2h antes, com fogo forte no centro, até a cúpula ficar clara (a fuligem queima). Depois empurre as brasas para um lado e mantenha uma chama viva com lenha seca e fina. O piso deve chegar a 430–480 °C (com termômetro infravermelho, ou quando um pouco de farinha jogada no piso escurece em 2–3 s). Varra o piso, asse 60–90 s girando a pizza com a pá a cada 20–30 s e, nos segundos finais, levante-a perto da cúpula para dourar a borda.',
   },
   {
     id: 'chapa',
-    nome: 'Doméstico com chapa de aço',
+    domestico: true,
+    nome: 'Forno comum com chapa de aço',
     preaquecer: 60,
-    texto: 'Coloque a chapa de aço (6–10 mm) na grelha mais alta e pré-aqueça no máximo por 45–60 min. Asse 4–6 min, usando o grill no fim. A chapa passa mais calor que a pedra: o fundo tosta mais rápido.',
+    texto: 'Coloque a chapa de aço (6–10 mm) na grelha mais alta e pré-aqueça no máximo por 45–60 min. Asse 5–8 min, usando o grill no fim. A chapa passa mais calor que a pedra: o fundo tosta mais rápido.',
   },
   {
     id: 'assadeira',
-    nome: 'Doméstico com assadeira',
+    domestico: true,
+    nome: 'Forno comum com assadeira',
     preaquecer: 30,
     texto: 'Pré-aqueça no máximo (250–280 °C) por 30 min. Abra a massa na assadeira levemente untada, monte e asse na grelha de baixo por 10–14 min, até a borda dourar; se o fundo ficar claro, deixe 1–2 min direto no chão do forno.',
   },
@@ -66,12 +80,6 @@ const FORNOS = [
     nome: 'Forno de pizza a gás',
     preaquecer: 30,
     texto: 'Pré-aqueça 20–30 min, até a pedra passar de 400 °C (430–480 °C no ideal). Abaixe a chama ao colocar a pizza e asse 60–90 s, girando a cada 20 s.',
-  },
-  {
-    id: 'lenha',
-    nome: 'Forno a lenha',
-    preaquecer: 90,
-    texto: 'Acenda 1–2 h antes, até o piso chegar a 430–480 °C, com a chama viva na lateral. Asse 60–90 s, girando a pizza com a pá a cada 20–30 s.',
   },
 ];
 
@@ -137,7 +145,7 @@ const misturaDireta = () => [
     tempo: '5 min + 10 min',
     ativo: 15,
     foto: 'farinha',
-    texto: '{fermentoDissolver} Adicione a farinha ({farinha}) aos poucos, mexendo com a mão ou uma colher, até não sobrar farinha seca. Tampe e descanse 10 min — isso facilita a sova.',
+    texto: '{fermentoDissolver}{acucarFrase} Adicione a farinha ({farinha}) aos poucos, mexendo com a mão ou uma colher, até não sobrar farinha seca. Tampe e descanse 10 min — isso facilita a sova.',
   },
   {
     icone: 'tigela',
@@ -163,7 +171,7 @@ const AUTOLISE_DIRETA = [
     ...AUTOLISE,
     texto: 'Misture só a farinha ({farinha}) com {agua90} de água a {tempAgua}, até não sobrar farinha seca — sem fermento e sem sal. Tampe e deixe descansar 30–60 min: a farinha se hidrata e o glúten começa a se formar sozinho, e a massa fica lisa e extensível com bem menos sova.',
   },
-  { icone: 'tigela', titulo: 'Junte o fermento', ativo: 3, texto: '{fermentoAutolise}' },
+  { icone: 'tigela', titulo: 'Junte o fermento', ativo: 3, texto: '{fermentoAutolise}{acucarFrase}' },
   {
     icone: 'tigela',
     titulo: 'Junte o sal',
@@ -182,7 +190,7 @@ const AUTOLISE_FINAL = [
     icone: 'tigela',
     titulo: 'Sal e o restante da água',
     ativo: 5,
-    texto: 'Junte o sal ({sal}) dissolvido nos {finAguaResto} de água restantes, aos poucos, apertando com os dedos até absorver.{azeiteFinal} Depois da autólise a sova fica mais curta: costuma bastar metade do tempo.',
+    texto: 'Junte o sal ({sal}) dissolvido nos {finAguaResto} de água restantes, aos poucos, apertando com os dedos até absorver.{acucarFrase}{azeiteFinal} Depois da autólise a sova fica mais curta: costuma bastar metade do tempo.',
   },
 ];
 
@@ -200,6 +208,7 @@ const RECEITAS = [
     // Disciplinare AVPN, por litro de água: 1,6–1,8 kg de farinha, 40–60 g de sal, 0,1–3 g de fermento fresco.
     // Valores do meio da faixa: 1,7 kg de farinha, 50 g de sal e 1,7 g de fermento por litro.
     id: 'avpn',
+    semAcucarAuto: true,
     curto: '8–12 h ambiente',
     wMin: 250,
     wIdeal: [260, 300],
@@ -230,7 +239,7 @@ const RECEITAS = [
             titulo: 'Água e sal',
             mistura: true,
             ativo: 2,
-            texto: 'Coloque toda a água ({agua}) na tigela (ou na amassadeira) e dissolva nela o sal ({sal}).',
+            texto: 'Coloque toda a água ({agua}) na tigela (ou na amassadeira) e dissolva nela o sal ({sal}).{acucarFrase}',
           },
           {
             icone: 'tigela',
@@ -353,7 +362,7 @@ const RECEITAS = [
             titulo: 'Farinha, sal, água e azeite',
             mistura: true,
             ativo: 8,
-            texto: 'Adicione {finFarinha} de farinha e misture até formar uma massa. Junte o sal ({sal}) e, então, os {finAguaResto} de água restantes aos poucos — só coloque mais quando a anterior tiver sido absorvida. Por último, o azeite ({azeite}) em fio.',
+            texto: 'Adicione {finFarinha} de farinha e misture até formar uma massa. Junte o sal ({sal}) e, então, os {finAguaResto} de água restantes aos poucos — só coloque mais quando a anterior tiver sido absorvida.{acucarFrase} Por último, o azeite ({azeite}) em fio.',
           },
           SOVAR,
           {
@@ -464,7 +473,7 @@ const RECEITAS = [
             titulo: 'Sal, água e azeite',
             mistura: true,
             ativo: 5,
-            texto: 'Junte o sal ({sal}) dissolvido nos {finAguaResto} de água restantes, apertando com os dedos até absorver. Por último, o azeite ({azeite}) em fio.',
+            texto: 'Junte o sal ({sal}) dissolvido nos {finAguaResto} de água restantes, apertando com os dedos até absorver.{acucarFrase} Por último, o azeite ({azeite}) em fio.',
           },
           SOVAR,
           {

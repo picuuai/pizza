@@ -390,6 +390,8 @@ body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
 #card-plano .linha-temp { grid-template-columns: minmax(0, 1fr) auto; }
 .insumos-forno { margin-top: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .insumos-forno .segmentos { margin-bottom: 0; }
+.campo-acucar { margin-top: 16px; }
+.segmentos-4 { grid-template-columns: repeat(4, 1fr); margin-bottom: 0; }
 
 /* ---------- Planejador ---------- */
 

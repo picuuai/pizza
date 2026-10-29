@@ -24,6 +24,7 @@ function carregarEstado() {
     previsao: null, // { lat, lon, em, atual, horas: [ms], temps: [°C] }
     sova: 'mao',
     autolise: false,
+    acucar: 'auto', // 'auto' | 0 | 0.01 | 0.02 (fração da farinha)
     forno: 'pedra',
     assarEm: null, // horário escolhido para assar (ms)
     livre: { util: ['18:00', '23:00'], fds: ['08:00', '23:00'] },
@@ -86,6 +87,15 @@ function textoTempAgua(graus) {
 }
 
 const grausC = (t) => fmt1Opcional.format(t) + ' °C';
+
+// Açúcar para dourar: no automático, 1–2% só em forno doméstico (até ~300 °C), onde a borda
+// doura pouco; 2% nas fermentações longas, que consomem mais o açúcar natural da farinha.
+// Em forno de pizza (350 °C ou mais) ele queimaria a borda.
+function acucarDe(r) {
+  if (estado.acucar !== 'auto') return Number(estado.acucar) || 0;
+  if (!fornoAtual().domestico || r.semAcucarAuto) return 0;
+  return r.geladeira || r.prefermento ? 0.02 : 0.01;
+}
 
 function fornoAtual() {
   return FORNOS.find((f) => f.id === estado.forno) || FORNOS[0];
@@ -162,7 +172,8 @@ function fasesDe(r) {
 function calcular(receita) {
   const h = hidratacaoDe(receita);
   const fermento = fermentoDe(receita);
-  const soma = 1 + h + receita.sal + fermento + receita.azeite + receita.acucar;
+  const acucar = acucarDe(receita);
+  const soma = 1 + h + receita.sal + fermento + receita.azeite + acucar;
 
   // Farinha calculada para chegar exatamente em bolas × peso
   const farinha = Math.max(0, (estado.bolas * estado.pesoBola) / soma || 0);
@@ -174,7 +185,8 @@ function calcular(receita) {
     sal: farinha * receita.sal,
     fermentoExato: farinha * fermento,
     azeite: farinha * receita.azeite,
-    acucar: farinha * receita.acucar,
+    acucar: farinha * acucar,
+    acucarPct: acucar,
     total: farinha * soma,
   };
   // Dose para pesar: arredondada para 1; 1,5; 2 g… (a balança de casa não pesa menos que isso)
@@ -400,6 +412,11 @@ function sincronizarEntradas() {
     b.classList.toggle('ativo', ativo);
     b.setAttribute('aria-pressed', ativo);
   }
+  for (const b of document.querySelectorAll('[data-acucar]')) {
+    const ativo = b.dataset.acucar === String(estado.acucar);
+    b.classList.toggle('ativo', ativo);
+    b.setAttribute('aria-pressed', ativo);
+  }
   for (const b of document.querySelectorAll('[data-sova]')) {
     const ativo = b.dataset.sova === estado.sova;
     b.classList.toggle('ativo', ativo);
@@ -517,6 +534,22 @@ function renderCozinha(r) {
       `(${fator < 1 ? 'mais quente, fermenta mais rápido — menos fermento' : 'mais frio, fermenta mais devagar — mais fermento'}).`;
   }
   $('#fermento-temp').textContent = fermentoTexto;
+  const acucar = acucarDe(r);
+  const forno = fornoAtual();
+  let acucarTexto;
+  if (estado.acucar === 'auto') {
+    if (!forno.domestico) acucarTexto = 'Automático: sem açúcar — no forno de pizza, muito quente, ele queimaria a borda.';
+    else if (r.semAcucarAuto) acucarTexto = 'Automático: sem açúcar — a receita AVPN original não leva. Se a borda sair pálida no forno doméstico, escolha 1%.';
+    else acucarTexto = `Automático: ${pct(acucar)} de açúcar, porque o forno doméstico doura pouco${r.geladeira || r.prefermento ? ' e a fermentação longa consome o açúcar natural da farinha' : ''}. Nessa quantidade a pizza não fica doce.`;
+  } else if (acucar && !forno.domestico) {
+    acucarTexto = `${pct(acucar)} de açúcar escolhido por você. Atenção: no forno de pizza, muito quente, o açúcar pode queimar a borda.`;
+  } else {
+    acucarTexto = acucar ? `${pct(acucar)} de açúcar escolhido por você: ajuda a borda a dourar sem deixar a pizza doce.` : 'Sem açúcar, escolhido por você.';
+  }
+  $('#acucar-info').textContent = acucarTexto;
+  $('#forno-info').textContent = forno.dica || '';
+  $('#forno-info').hidden = !forno.dica;
+
   const btPrev = $('#bt-previsao');
   btPrev.classList.toggle('ativo', estado.tempFonte === 'previsao');
 }
@@ -534,7 +567,7 @@ function ingredientesDaFase(r, c, fase) {
     ? [{ nome: 'Azeite', nota: pct(r.azeite), g: gramas(c.azeite, 1), extra: `≈ ${fmt0.format(c.azeite * ML_POR_G_AZEITE)} ml` }]
     : [];
   const sal = { nome: 'Sal', nota: pct(r.sal), g: gramas(c.sal, 1) };
-  const acucar = r.acucar ? [{ nome: 'Açúcar', nota: pct(r.acucar), g: gramas(c.acucar, 1) }] : [];
+  const acucar = c.acucarPct ? [{ nome: 'Açúcar', nota: pct(c.acucarPct), g: gramas(c.acucar, 1) }] : [];
   const pf = r.prefermento;
 
   if (fase.ingredientes === 'prefermento') {
@@ -615,7 +648,7 @@ function valoresDoTexto(r, c) {
     `${v.fermento} de ${nomeFermento(estado.fermentoTipo)}`,
   ];
   if (r.azeite) itens.push(`${v.azeite} de azeite`);
-  if (r.acucar) itens.push(`${forte(gramas(c.acucar, 1))} de açúcar`);
+  if (c.acucarPct) itens.push(`${forte(gramas(c.acucar, 1))} de açúcar`);
   v.listaPesagem = itens.slice(0, -1).join(', ') + ' e ' + itens[itens.length - 1];
   // Trechos de texto (já formatados) que dependem do fermento e do forno escolhidos
   v.fermentoNome = nomeFermento(estado.fermentoTipo);
@@ -627,6 +660,7 @@ function valoresDoTexto(r, c) {
     ? `Espalhe ${forte(fermento)} de fermento seco instantâneo por cima da massa e aperte e dobre com os dedos até incorporar (2–3 min).`
     : `Esfarele ${forte(fermento)} de fermento fresco por cima da massa e aperte e dobre com os dedos até ele sumir na massa (2–3 min).`;
   v.azeiteFinal = r.azeite ? ` Por último, junte o azeite (${v.azeite}) em fio.` : '';
+  v.acucarFrase = c.acucarPct ? ` Junte também ${forte(gramas(c.acucar, 1))} de açúcar.` : '';
   if (r.prefermento) {
     v.juntarPrefermento = r.prefermento.artigo === 'a'
       ? `Junte a biga em pedaços e aperte e dobre a massa até a biga se misturar por completo (3–5 min).`
@@ -834,6 +868,13 @@ function ligarEventos() {
       estado.autolise = b.dataset.autolise === 'sim';
       sincronizarEntradas();
       renderTecnica(receitaAtual());
+      atualizar();
+    });
+  }
+  for (const b of document.querySelectorAll('[data-acucar]')) {
+    b.addEventListener('click', () => {
+      estado.acucar = b.dataset.acucar === 'auto' ? 'auto' : Number(b.dataset.acucar);
+      sincronizarEntradas();
       atualizar();
     });
   }

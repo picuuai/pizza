@@ -4,6 +4,9 @@ const ARMAZENAMENTO = 'pizza-calc-v1';
 const ML_POR_G_AZEITE = 1 / 0.92;
 const HID_MIN = 50;
 const HID_MAX = 85;
+// Aquecimento que a sova dá à massa (°C), para o cálculo da temperatura da água
+const FRICCAO = { mao: 4, batedeira: 12 };
+const PREVISAO_VALIDADE_MS = 3 * 3600 * 1000;
 
 const estado = carregarEstado();
 
@@ -16,6 +19,14 @@ function carregarEstado() {
     fermentoTipo: 'fresco', // 'fresco' | 'seco' (instantâneo)
     farinhaTipo: 'italiana',
     farinhaW: 280,
+    tempCozinha: 22,
+    tempFonte: 'manual', // 'manual' | 'previsao'
+    previsao: null, // { lat, lon, em, atual, horas: [ms], temps: [°C] }
+    sova: 'mao',
+    forno: 'pedra',
+    assarEm: null, // horário escolhido para assar (ms)
+    livre: { util: ['18:00', '23:00'], fds: ['08:00', '23:00'] },
+    alertas: false,
   };
   try {
     const salvo = JSON.parse(localStorage.getItem(ARMAZENAMENTO));
@@ -33,14 +44,61 @@ function salvarEstado() {
   }
 }
 
+// ---------- Temperatura ----------
+
+// Temperatura da cozinha usada nos cálculos: digitada ou média da previsão durante a fermentação
+function temperaturaAmbiente() {
+  const p = estado.previsao;
+  if (estado.tempFonte !== 'previsao' || !p) return estado.tempCozinha;
+  const [ini, fim] = janelaFermentacao(receitaAtual());
+  const temps = p.horas
+    .map((h, i) => (h >= ini - 1800000 && h <= fim ? p.temps[i] : null))
+    .filter((t) => t != null);
+  const media = temps.length ? temps.reduce((a, b) => a + b, 0) / temps.length : p.atual;
+  return Math.round(media * 2) / 2;
+}
+
+// A fermentação dobra de velocidade a cada ~10 °C: ajusta a dose para a temperatura da cozinha
+function fatorTemperatura(receita) {
+  if (!receita.tempRef) return 1;
+  const t = Math.min(35, Math.max(10, temperaturaAmbiente()));
+  return Math.min(2.5, Math.max(0.35, 2 ** ((receita.tempRef - t) / 10)));
+}
+
+// Temperatura da água para a massa terminar na temperatura desejada (fórmula da padaria):
+// água = n × massa desejada − farinha − ambiente − sova (− pré-fermento, na massa final)
+function tempAgua(receita, fase) {
+  const t = temperaturaAmbiente();
+  const friccao = fase.semSova ? 0 : FRICCAO[estado.sova] ?? FRICCAO.mao;
+  if (fase.ingredientes === 'final' && receita.prefermento) {
+    const tpf = receita.prefermento.temp ?? t;
+    return 4 * fase.ddt - t - t - tpf - friccao;
+  }
+  return 3 * fase.ddt - t - t - friccao;
+}
+
+function textoTempAgua(graus) {
+  if (graus < 2) return '~2 °C (água com gelo)';
+  if (graus < 8) return `${fmt0.format(graus)} °C (gelada)`;
+  if (graus > 38) return '38 °C (morna; não passe disso)';
+  return `${fmt0.format(graus)} °C`;
+}
+
+const grausC = (t) => fmt1Opcional.format(t) + ' °C';
+
+function fornoAtual() {
+  return FORNOS.find((f) => f.id === estado.forno) || FORNOS[0];
+}
+
 // ---------- Farinha e fermento ----------
 
-// Fermento da receita convertido para o tipo escolhido (fração da farinha)
+// Fermento da receita convertido para o tipo escolhido e ajustado à temperatura (fração da farinha)
 function fermentoDe(receita) {
-  if (receita.tipoFermento === estado.fermentoTipo) return receita.fermento;
-  return estado.fermentoTipo === 'seco'
-    ? receita.fermento / FRESCO_POR_SECO
-    : receita.fermento * FRESCO_POR_SECO;
+  let f = receita.fermento * fatorTemperatura(receita);
+  if (receita.tipoFermento !== estado.fermentoTipo) {
+    f = estado.fermentoTipo === 'seco' ? f / FRESCO_POR_SECO : f * FRESCO_POR_SECO;
+  }
+  return f;
 }
 
 // Água que a farinha absorve bem, pela força W (valores indicativos)
@@ -150,6 +208,12 @@ function lerDecimal(texto) {
 
 const nomeFermento = (tipo) => (tipo === 'seco' ? 'fermento seco instantâneo' : 'fermento fresco');
 
+function semHtml(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html.replace(/<br\s*\/?>/g, '\n');
+  return d.textContent.replace(/[ \t]+/g, ' ').trim();
+}
+
 // ---------- Ilustrações das etapas ----------
 
 const ICONES = {
@@ -202,6 +266,7 @@ function montarMenu() {
     </a>`;
 
   $('#sel-farinha').innerHTML = FARINHAS.map((f) => `<option value="${f.id}">${f.nome}</option>`).join('');
+  $('#sel-forno').innerHTML = FORNOS.map((f) => `<option value="${f.id}">${f.nome}</option>`).join('');
 }
 
 // Bolinha de compatibilidade da farinha em cada item do menu
@@ -302,12 +367,19 @@ function sincronizarEntradas() {
     b.classList.toggle('ativo', ativo);
     b.setAttribute('aria-pressed', ativo);
   }
+  for (const b of document.querySelectorAll('[data-sova]')) {
+    const ativo = b.dataset.sova === estado.sova;
+    b.classList.toggle('ativo', ativo);
+    b.setAttribute('aria-pressed', ativo);
+  }
   $('#in-bolas').value = estado.bolas;
   $('#in-peso').value = estado.pesoBola;
   $('#sel-farinha').value = estado.farinhaTipo;
   $('#in-w').value = estado.farinhaW;
+  $('#sel-forno').value = estado.forno;
   const f = FARINHAS.find((x) => x.id === estado.farinhaTipo);
   $('#farinha-dica').textContent = f ? f.dica : '';
+  sincronizarPlanoEntradas();
 }
 
 function sincronizarHidratacao() {
@@ -380,14 +452,51 @@ function renderCompat(r, c) {
     `(se usar ${outro}: ${gramasFermento(c.fermentoOutro)}).`;
 }
 
+// Cartão "Sua cozinha": de onde vem a temperatura, água de cada etapa e ajuste do fermento
+function renderCozinha(r) {
+  const t = temperaturaAmbiente();
+  $('#in-temp').value = fmt1Opcional.format(t).replace(',', '.');
+  const p = estado.previsao;
+  let info;
+  if (estado.tempFonte === 'previsao' && p) {
+    const [ini, fim] = janelaFermentacao(r);
+    const quando = (ms) => new Intl.DateTimeFormat('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(ms);
+    info = `Previsão para a sua localização: agora ${grausC(p.atual)}; média de <strong>${grausC(t)}</strong> entre ${quando(ini)} e ${quando(fim)}, período desta massa. ` +
+      'Dentro de casa a temperatura costuma variar menos que lá fora: se a sua cozinha for mais quente ou mais fria, ajuste o número.';
+  } else {
+    info = 'Temperatura digitada por você. Toque em "Usar previsão" para pegar a previsão do tempo da sua cidade para o período da fermentação.';
+  }
+  $('#temp-info').innerHTML = info;
+
+  const aguas = r.fases.map((f) => `${r.fases.length > 1 ? f.titulo.replace(/^Etapa \d · /, '') + ': ' : ''}<strong>${textoTempAgua(tempAgua(r, f))}</strong>`);
+  $('#agua-info').innerHTML = 'Água: ' + aguas.join(' · ');
+
+  const fator = fatorTemperatura(r);
+  let fermentoTexto;
+  if (!r.tempRef) {
+    fermentoTexto = r.geladeira
+      ? 'Nesta receita a fermentação principal é na geladeira, então a dose de fermento não muda com a temperatura da cozinha — só a temperatura da água.'
+      : 'Nesta receita a biga fermenta a 18 °C controlados, então a dose de fermento não muda com a temperatura da cozinha.';
+  } else if (Math.abs(fator - 1) < 0.05) {
+    fermentoTexto = `Dose de fermento pensada para ~${grausC(r.tempRef)}: sem ajuste para a sua cozinha.`;
+  } else {
+    fermentoTexto = `Dose de fermento ajustada de ~${grausC(r.tempRef)} para ${grausC(t)}: ${fmt2.format(fator)}× a dose original ` +
+      `(${fator < 1 ? 'mais quente, fermenta mais rápido — menos fermento' : 'mais frio, fermenta mais devagar — mais fermento'}).`;
+  }
+  $('#fermento-temp').textContent = fermentoTexto;
+  const btPrev = $('#bt-previsao');
+  btPrev.classList.toggle('ativo', estado.tempFonte === 'previsao');
+}
+
 // Linhas da tabela de ingredientes de cada etapa
-function ingredientesDaFase(r, c, tipo) {
+function ingredientesDaFase(r, c, fase) {
   const outro = estado.fermentoTipo === 'seco' ? 'fresco' : 'seco';
   const fermento = {
     nome: 'Fermento ' + (estado.fermentoTipo === 'seco' ? 'seco' : 'fresco'),
     g: gramasFermento(c.fermento),
     extra: `≈ ${gramasFermento(c.fermentoOutro)} se usar ${outro}`,
   };
+  const aguaExtra = `a ${textoTempAgua(tempAgua(r, fase))}`;
   const azeite = r.azeite
     ? [{ nome: 'Azeite', nota: pct(r.azeite), g: gramas(c.azeite, 1), extra: `≈ ${fmt0.format(c.azeite * ML_POR_G_AZEITE)} ml` }]
     : [];
@@ -395,18 +504,18 @@ function ingredientesDaFase(r, c, tipo) {
   const acucar = r.acucar ? [{ nome: 'Açúcar', nota: pct(r.acucar), g: gramas(c.acucar, 1) }] : [];
   const pf = r.prefermento;
 
-  if (tipo === 'prefermento') {
+  if (fase.ingredientes === 'prefermento') {
     return [
       { nome: 'Farinha', nota: `${pct(pf.farinha)} do total`, g: gramas(c.pfFarinha, 0) },
-      { nome: 'Água', nota: `${pct(pf.agua)} da farinha`, g: gramas(c.pfAgua, 0) },
+      { nome: 'Água', nota: `${pct(pf.agua)} da farinha`, g: gramas(c.pfAgua, 0), extra: aguaExtra },
       { ...fermento, nota: `${pct(c.fermentoExato / c.pfFarinha || 0)} da farinha` },
     ];
   }
-  if (tipo === 'final') {
+  if (fase.ingredientes === 'final') {
     return [
       { nome: pf.rotulo, nota: 'da etapa 1', g: gramas(c.pfPeso, 0) },
       { nome: 'Farinha', nota: 'restante', g: gramas(c.finFarinha, 0) },
-      { nome: 'Água', nota: 'restante', g: gramas(c.finAgua, 0), agua: true },
+      { nome: 'Água', nota: 'restante', g: gramas(c.finAgua, 0), agua: true, extra: aguaExtra },
       sal,
       ...azeite,
       ...acucar,
@@ -414,7 +523,7 @@ function ingredientesDaFase(r, c, tipo) {
   }
   return [
     { nome: 'Farinha', nota: '100%', g: gramas(c.farinha, 0) },
-    { nome: 'Água', nota: pct(c.hidratacao), g: gramas(c.agua, 0), agua: true },
+    { nome: 'Água', nota: pct(c.hidratacao), g: gramas(c.agua, 0), agua: true, extra: aguaExtra },
     sal,
     { ...fermento, nota: pct(fermentoDe(r)) },
     ...azeite,
@@ -451,6 +560,7 @@ function valoresDoTexto(r, c) {
     aguaResto: gramas(c.agua - Math.round(c.agua * 0.9), 0),
     bolas: String(estado.bolas),
     pesoBola: gramas(estado.pesoBola, 0),
+    tempCozinha: grausC(temperaturaAmbiente()),
   };
   if (r.prefermento) {
     const parte = Math.round(c.finAgua * 2 / 3);
@@ -474,12 +584,22 @@ function valoresDoTexto(r, c) {
   if (r.azeite) itens.push(`${v.azeite} de azeite`);
   if (r.acucar) itens.push(`${forte(gramas(c.acucar, 1))} de açúcar`);
   v.listaPesagem = itens.slice(0, -1).join(', ') + ' e ' + itens[itens.length - 1];
-  // Trechos de texto (já formatados) que dependem do fermento escolhido
+  // Trechos de texto (já formatados) que dependem do fermento e do forno escolhidos
   v.fermentoNome = nomeFermento(estado.fermentoTipo);
   v.fermentoDissolver = estado.fermentoTipo === 'seco'
     ? `Misture ${forte(fermento)} de fermento seco instantâneo em ${forte(agua90)} de água.`
     : `Esfarele ${forte(fermento)} de fermento fresco em ${forte(agua90)} de água e mexa até dissolver.`;
+  v.instrucaoForno = fornoAtual().texto;
   return v;
+}
+
+// Valores que mudam em cada etapa (temperatura da água e da massa)
+function valoresDaFase(r, fase, v) {
+  return {
+    ...v,
+    tempAgua: `<strong>${textoTempAgua(tempAgua(r, fase))}</strong>`,
+    ddt: `<strong>${grausC(fase.ddt)}</strong>`,
+  };
 }
 
 function preencher(texto, v) {
@@ -488,13 +608,15 @@ function preencher(texto, v) {
 
 function renderFases(r, c) {
   const v = valoresDoTexto(r, c);
-  $('#fases').innerHTML = r.fases.map((fase) => `
+  $('#fases').innerHTML = r.fases.map((fase) => {
+    const vf = valoresDaFase(r, fase, v);
+    return `
     <section class="card fase">
       <header class="fase-topo">
         <h3>${fase.titulo}</h3>
         ${fase.quando ? `<span class="quando">${fase.quando}</span>` : ''}
       </header>
-      ${tabelaIngredientes(ingredientesDaFase(r, c, fase.ingredientes))}
+      ${tabelaIngredientes(ingredientesDaFase(r, c, fase))}
       <h4 class="modo-titulo">Modo de fazer</h4>
       <ol class="passos">
         ${fase.passos.map((p) => `
@@ -505,12 +627,13 @@ function renderFases(r, c) {
                 <strong>${p.titulo}</strong>
                 ${p.tempo ? `<span class="tempo">${p.tempo}</span>` : ''}
               </div>
-              <p>${preencher(p.texto, v)}</p>
+              <p>${preencher(p.texto, vf)}</p>
               ${p.foto ? figura(p.foto, 'foto-passo') : ''}
             </div>
           </li>`).join('')}
       </ol>
-    </section>`).join('');
+    </section>`;
+  }).join('');
 }
 
 function atualizar() {
@@ -519,6 +642,7 @@ function atualizar() {
 
   sincronizarHidratacao();
   renderCompat(r, c);
+  renderCozinha(r);
   marcarCompatMenu();
 
   $('#total').textContent = gramas(c.total, 0);
@@ -539,6 +663,7 @@ function atualizar() {
   }
 
   renderFases(r, c);
+  renderPlano(r, c);
   salvarEstado();
 }
 
@@ -551,12 +676,120 @@ function definirHidratacao(percentual) {
   atualizar();
 }
 
+// ---------- Previsão do tempo (Open-Meteo, sem cadastro) ----------
+
+async function buscarPrevisao(lat, lon) {
+  const url = 'https://api.open-meteo.com/v1/forecast?current=temperature_2m&hourly=temperature_2m' +
+    `&forecast_days=7&timezone=GMT&latitude=${lat}&longitude=${lon}`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('previsão indisponível');
+  const d = await resp.json();
+  estado.previsao = {
+    lat,
+    lon,
+    em: Date.now(),
+    atual: d.current.temperature_2m,
+    horas: d.hourly.time.map((t) => Date.parse(t + 'Z')),
+    temps: d.hourly.temperature_2m,
+  };
+}
+
+async function usarPrevisao() {
+  const bt = $('#bt-previsao');
+  if (!('geolocation' in navigator)) {
+    alert('Este aparelho não informa a localização. Digite a temperatura da cozinha.');
+    return;
+  }
+  bt.disabled = true;
+  bt.textContent = 'Buscando…';
+  try {
+    const pos = await new Promise((ok, erro) =>
+      navigator.geolocation.getCurrentPosition(ok, erro, { timeout: 15000, maximumAge: 3600000 })
+    );
+    // 2 casas decimais (~1 km) bastam para a previsão e preservam a privacidade
+    await buscarPrevisao(pos.coords.latitude.toFixed(2), pos.coords.longitude.toFixed(2));
+    estado.tempFonte = 'previsao';
+    atualizar();
+  } catch {
+    alert('Não foi possível obter a previsão (localização negada ou sem internet). Digite a temperatura da cozinha.');
+  } finally {
+    bt.disabled = false;
+    bt.textContent = 'Usar previsão';
+  }
+}
+
+// Atualiza a previsão guardada se ela tiver mais de 3 h
+async function renovarPrevisao() {
+  const p = estado.previsao;
+  if (estado.tempFonte !== 'previsao' || !p || Date.now() - p.em < PREVISAO_VALIDADE_MS) return;
+  try {
+    await buscarPrevisao(p.lat, p.lon);
+    atualizar();
+  } catch {
+    // sem internet: segue com a previsão antiga
+  }
+}
+
+// ---------- Compartilhar e imprimir ----------
+
+function textoReceita() {
+  const r = receitaAtual();
+  const c = calcular(r);
+  const v = valoresDoTexto(r, c);
+  const linhas = [
+    `🍕 ${r.nome} — ${estado.bolas} bolas de ${fmt0.format(estado.pesoBola)} g (massa total ${gramas(c.total, 0)})`,
+    `Hidratação ${pct(c.hidratacao)} · farinha W ${estado.farinhaW} · ${nomeFermento(estado.fermentoTipo)} · cozinha a ${grausC(temperaturaAmbiente())}`,
+    `Forno: ${fornoAtual().nome}`,
+  ];
+  for (const fase of r.fases) {
+    const vf = valoresDaFase(r, fase, v);
+    linhas.push('', `*${fase.titulo}*${fase.quando ? ` (${fase.quando})` : ''}`);
+    for (const l of ingredientesDaFase(r, c, fase)) {
+      linhas.push(`• ${l.nome}: ${l.g}${l.extra ? ` (${l.extra})` : ''}`);
+    }
+    linhas.push('Modo de fazer:');
+    fase.passos.forEach((p, i) => linhas.push(`${i + 1}. ${p.titulo}: ${semHtml(preencher(p.texto, vf))}`));
+  }
+  const plano = textoPlano();
+  if (plano) linhas.push('', '*Horários*', plano);
+  linhas.push('', location.href.split('#')[0] + '#' + r.id);
+  return linhas.join('\n');
+}
+
+async function compartilhar() {
+  const texto = textoReceita();
+  const titulo = receitaAtual().nome + ' · Massa de Pizza';
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: titulo, text: texto });
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(texto);
+    alert('Receita copiada. Agora é só colar no WhatsApp ou onde quiser.');
+  } catch {
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener');
+  }
+}
+
+// ---------- Eventos ----------
+
 function ligarEventos() {
   window.addEventListener('hashchange', rota);
 
   for (const b of document.querySelectorAll('[data-fermento]')) {
     b.addEventListener('click', () => {
       estado.fermentoTipo = b.dataset.fermento;
+      sincronizarEntradas();
+      atualizar();
+    });
+  }
+  for (const b of document.querySelectorAll('[data-sova]')) {
+    b.addEventListener('click', () => {
+      estado.sova = b.dataset.sova;
       sincronizarEntradas();
       atualizar();
     });
@@ -569,33 +802,49 @@ function ligarEventos() {
     sincronizarEntradas();
     atualizar();
   });
+  $('#sel-forno').addEventListener('change', (e) => {
+    estado.forno = e.target.value;
+    atualizar();
+  });
 
-  const MINIMOS = { bolas: 1, pesoBola: 1, farinhaW: 100 };
-  const numerico = (sel, chave) => {
+  const MINIMOS = { bolas: 1, pesoBola: 1, farinhaW: 100, tempCozinha: 5 };
+  const numerico = (sel, chave, aoMudar) => {
     $(sel).addEventListener('input', (e) => {
       const n = e.target.valueAsNumber;
       if (Number.isFinite(n) && n >= MINIMOS[chave]) {
         estado[chave] = n;
+        if (aoMudar) aoMudar();
         atualizar();
       }
     });
     $(sel).addEventListener('blur', (e) => {
-      e.target.value = estado[chave];
+      e.target.value = chave === 'tempCozinha' ? temperaturaAmbiente() : estado[chave];
     });
   };
   numerico('#in-bolas', 'bolas');
   numerico('#in-peso', 'pesoBola');
   numerico('#in-w', 'farinhaW');
+  numerico('#in-temp', 'tempCozinha', () => { estado.tempFonte = 'manual'; });
 
   for (const b of document.querySelectorAll('[data-passo]')) {
     b.addEventListener('click', () => {
       const [chave, passo] = b.dataset.passo.split(':');
-      const min = chave === 'bolas' ? 1 : Math.max(10, MINIMOS[chave]);
-      estado[chave] = Math.max(min, (Number(estado[chave]) || 0) + Number(passo));
+      if (chave === 'tempCozinha') {
+        // ajustar à mão a partir do valor mostrado (que pode vir da previsão)
+        estado.tempCozinha = Math.min(40, Math.max(5, temperaturaAmbiente() + Number(passo)));
+        estado.tempFonte = 'manual';
+      } else {
+        const min = chave === 'bolas' ? 1 : Math.max(10, MINIMOS[chave]);
+        estado[chave] = Math.max(min, (Number(estado[chave]) || 0) + Number(passo));
+      }
       sincronizarEntradas();
       atualizar();
     });
   }
+
+  $('#bt-previsao').addEventListener('click', usarPrevisao);
+  $('#bt-compartilhar').addEventListener('click', compartilhar);
+  $('#bt-imprimir').addEventListener('click', () => window.print());
 
   $('#slider-hid').addEventListener('input', (e) => definirHidratacao(Number(e.target.value)));
   $('#in-hid').addEventListener('change', (e) => definirHidratacao(lerDecimal(e.target.value)));
@@ -609,6 +858,7 @@ function ligarEventos() {
     atualizar();
   });
 
+  ligarEventosPlano();
   configurarTelaAcesa();
 }
 
@@ -650,10 +900,15 @@ function configurarTelaAcesa() {
   render();
 }
 
-montarMenu();
-ligarEventos();
-if (!location.hash) history.replaceState(null, '', '#' + receitaAtual().id);
-rota();
+// Começa depois que todos os scripts (inclusive o planejador) foram carregados
+document.addEventListener('DOMContentLoaded', () => {
+  montarMenu();
+  ligarEventos();
+  if (!location.hash) history.replaceState(null, '', '#' + receitaAtual().id);
+  rota();
+  renovarPrevisao();
+  retomarAlertas();
+});
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   // updateViaCache: 'none' faz o navegador sempre conferir se o sw.js mudou

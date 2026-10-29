@@ -38,6 +38,10 @@
       <p class="tags"><span id="metodo" class="tag"></span> <span id="azeite-tag" class="tag"></span></p>
       <p id="prazo" class="prazo"></p>
       <ol id="linha-tempo" class="linha-tempo" aria-label="Linha do tempo"></ol>
+      <div class="acoes-receita">
+        <button id="bt-compartilhar" type="button" class="bt-sec">Compartilhar</button>
+        <button id="bt-imprimir" type="button" class="bt-sec">Imprimir</button>
+      </div>
     </section>
 
     <section class="card" aria-labelledby="t-insumos">
@@ -69,6 +73,39 @@
       <p id="dose-fermento" class="dose"></p>
       <p id="aviso-fermento" class="aviso" hidden></p>
       <p class="dica">Seco instantâneo = fresco ÷ 3 (o de sachê, que vai direto na massa). O seco biológico comum, que precisa ser ativado em água morna, equivale a ~fresco ÷ 2.</p>
+    </section>
+
+    <section class="card" aria-labelledby="t-cozinha">
+      <h3 id="t-cozinha">Sua cozinha</h3>
+      <div class="linha-temp">
+        <label class="campo">
+          <span>Temperatura (°C)</span>
+          <div class="stepper">
+            <button type="button" data-passo="tempCozinha:-1" aria-label="Diminuir 1 grau">−</button>
+            <input id="in-temp" type="number" inputmode="decimal" min="5" max="40" step="0.5">
+            <button type="button" data-passo="tempCozinha:1" aria-label="Aumentar 1 grau">+</button>
+          </div>
+        </label>
+        <button id="bt-previsao" type="button" class="bt-sec">Usar previsão</button>
+      </div>
+      <p id="temp-info" class="dica"></p>
+      <p id="agua-info" class="dose"></p>
+      <p id="fermento-temp" class="dica"></p>
+
+      <div class="insumos insumos-forno">
+        <label class="campo">
+          <span>Seu forno</span>
+          <select id="sel-forno" class="select"></select>
+        </label>
+        <div class="campo">
+          <span>Sova</span>
+          <div class="segmentos segmentos-2" role="group" aria-label="Como você sova">
+            <button type="button" data-sova="mao">À mão</button>
+            <button type="button" data-sova="batedeira">Batedeira</button>
+          </div>
+        </div>
+      </div>
+      <p class="dica">A sova aquece a massa (à mão ~4 °C, batedeira ~12 °C) e entra no cálculo da água.</p>
     </section>
 
     <section class="card" aria-labelledby="t-quantidade">
@@ -125,6 +162,34 @@
       </div>
     </section>
 
+    <section id="card-plano" class="card" aria-labelledby="t-plano">
+      <h3 id="t-plano">Planejar horários</h3>
+      <div class="linha-temp">
+        <label class="campo">
+          <span>Quero assar em</span>
+          <input id="in-assar" type="datetime-local" class="select">
+        </label>
+        <button id="bt-sugerir" type="button" class="bt-sec">Próximo horário possível</button>
+      </div>
+      <details class="livre">
+        <summary>Seus horários livres</summary>
+        <div class="grade-livre">
+          <span>Seg a sex</span>
+          <input id="util-ini" type="time" class="select"><span>às</span><input id="util-fim" type="time" class="select">
+          <span>Sáb e dom</span>
+          <input id="fds-ini" type="time" class="select"><span>às</span><input id="fds-fim" type="time" class="select">
+        </div>
+        <p class="dica">As etapas com mão na massa são encaixadas nesses horários; as esperas (fermentação, geladeira) podem cair em qualquer hora.</p>
+      </details>
+      <p id="plano-aviso"></p>
+      <ol id="plano" class="plano"></ol>
+      <div class="acoes-receita">
+        <button id="bt-ics" type="button" class="bt-sec">📅 Adicionar à agenda</button>
+        <button id="bt-alertas" type="button" class="bt-sec">🔔 Avisos no app</button>
+      </div>
+      <p class="dica">"Adicionar à agenda" baixa um arquivo com todos os lembretes para a agenda do celular, que avisa mesmo com o app fechado (no Android, abra o arquivo com o app de agenda; ou use "+ Google Agenda" em cada etapa). Os avisos do app só tocam com ele aberto ou em segundo plano.</p>
+    </section>
+
     <div id="fases" class="fases"></div>
 
     <section class="card info" aria-labelledby="t-dicas">
@@ -155,5 +220,6 @@
 
   <script src="receitas.js"></script>
   <script src="app.js"></script>
+  <script src="planejador.js"></script>
 </body>
 </html>
